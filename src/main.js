@@ -5,15 +5,17 @@ import { AudioManager } from './audio.js';
 import { ParticleManager } from './particles.js';
 import { NetworkManager } from './network.js';
 import { Dummy } from './dummy.js';
+import { ReadyCircle } from './readyCircle.js';
 
 const canvas = document.getElementById('game-canvas');
 const renderer = new Renderer(canvas);
 const input = new InputManager();
-const player = new Player(0, 50);
+const player = new Player(0, 0);
 const audio = new AudioManager();
 const particles = new ParticleManager();
 const network = new NetworkManager();
-const dummy = new Dummy(0, -140);
+const dummy = new Dummy(0, -180);
+const readyCircle = new ReadyCircle(0, 160, 75);
 
 const dungeonBounds = { minX: -600, minY: -600, maxX: 600, maxY: 600 };
 
@@ -25,6 +27,20 @@ const unlockAudio = () => {
 };
 window.addEventListener('click', unlockAudio);
 window.addEventListener('keydown', unlockAudio);
+
+// When ready circle countdown reaches 0
+readyCircle.onDescentTriggered = () => {
+  audio.playDescentFanfare();
+  particles.spawnComicText(readyCircle.x, readyCircle.y - 30, 'DESCENDING!', '#00ff88');
+
+  // Flash floor number in HUD
+  const hudFloor = document.getElementById('hud-floor');
+  if (hudFloor) {
+    hudFloor.textContent = '1 (READY)';
+    hudFloor.style.color = '#00ff88';
+    hudFloor.style.textShadow = '0 0 15px #00ff88';
+  }
+};
 
 // --- LOBBY UI & NETWORKING HOOKS ---
 const lobbyModal = document.getElementById('lobby-modal');
@@ -171,7 +187,6 @@ network.onMessageReceived = (fromPeerId, msg) => {
     });
     updatePartyRoster();
   } else if (msg.type === 'SLAP_KNOCKBACK') {
-    // If knockback is directed at local player
     if (msg.targetPeerId === network.myPeerId) {
       player.applyKnockback(msg.kx, msg.ky);
       audio.playBonk();
@@ -210,7 +225,6 @@ function checkAttackHits(isSlap = false) {
       particles.spawnComicText(dummy.x, dummy.y - 24, `POW! -${damage}`, '#ffea00');
     }
 
-    // Sync dummy hit to peers
     const hitMsg = { type: 'DUMMY_HIT', damage, angle: player.angle };
     if (network.isHost) network.broadcast(hitMsg);
     else network.sendToHost(hitMsg);
@@ -224,7 +238,6 @@ function checkAttackHits(isSlap = false) {
       const kx = Math.cos(player.angle) * knockbackPower;
       const ky = Math.sin(player.angle) * knockbackPower;
 
-      // Broadcast knockback to friend
       const slapMsg = {
         type: 'SLAP_KNOCKBACK',
         targetPeerId: peerId,
@@ -252,6 +265,7 @@ function gameLoop(now) {
   // 1. Update entities
   player.update(dt, input, dungeonBounds);
   dummy.update(dt);
+  readyCircle.update(dt, player, network.remotePlayers);
   player.syncHUD();
 
   // Left Shift Roll
@@ -300,13 +314,16 @@ function gameLoop(now) {
   // Background stone floor
   renderer.drawDungeonFloor(dungeonBounds);
 
+  // Ready Ritual Circle (drawn on ground beneath entities)
+  readyCircle.draw(renderer.ctx);
+
   // Corner torches
   renderer.drawTorch(-560, -560, now * 0.001);
   renderer.drawTorch(560, -560, now * 0.001);
   renderer.drawTorch(-560, 560, now * 0.001);
   renderer.drawTorch(560, 560, now * 0.001);
 
-  // Draw Training Dummy with wobble physics & DPS stats
+  // Draw Training Dummy
   dummy.draw(renderer.ctx);
 
   // Dash after-images & particles
@@ -330,4 +347,4 @@ function gameLoop(now) {
 }
 
 requestAnimationFrame(gameLoop);
-console.log('Step 2.2: Interactive Training Dummy & Slap Physics integrated successfully');
+console.log('Step 2.3: Ready Ritual Circle integrated successfully');
