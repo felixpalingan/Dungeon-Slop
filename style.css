@@ -237,6 +237,41 @@ html, body {
   gap: 16px;
 }
 
+.wardrobe-card {
+  border-color: rgba(0, 240, 255, 0.4);
+  box-shadow: 0 0 40px rgba(0, 240, 255, 0.2), 0 20px 50px rgba(0, 0, 0, 0.8);
+}
+
+.wardrobe-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.wardrobe-icon {
+  font-size: 2.2rem;
+}
+
+.wardrobe-preview-box {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 16px;
+  background: rgba(0, 0, 0, 0.4);
+  border-radius: 12px;
+  border: 1px dashed rgba(255, 255, 255, 0.15);
+}
+
+.wardrobe-preview-circle {
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  background: #00f0ff;
+  border: 3px solid #ffffff;
+  box-shadow: 0 0 16px #00f0ff;
+  transition: background 0.15s, box-shadow 0.15s;
+}
+
 .modal-title {
   font-size: 1.4rem;
   font-weight: 900;

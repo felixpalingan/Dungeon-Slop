@@ -6,6 +6,7 @@ import { ParticleManager } from './particles.js';
 import { NetworkManager } from './network.js';
 import { Dummy } from './dummy.js';
 import { ReadyCircle } from './readyCircle.js';
+import { CustomizationStation } from './customizationStation.js';
 
 const canvas = document.getElementById('game-canvas');
 const renderer = new Renderer(canvas);
@@ -14,8 +15,11 @@ const player = new Player(0, 0);
 const audio = new AudioManager();
 const particles = new ParticleManager();
 const network = new NetworkManager();
+
+// Lobby interactive entities
 const dummy = new Dummy(0, -180);
 const readyCircle = new ReadyCircle(0, 160, 75);
+const wardrobeStation = new CustomizationStation(-240, -120);
 
 const dungeonBounds = { minX: -600, minY: -600, maxX: 600, maxY: 600 };
 
@@ -33,7 +37,6 @@ readyCircle.onDescentTriggered = () => {
   audio.playDescentFanfare();
   particles.spawnComicText(readyCircle.x, readyCircle.y - 30, 'DESCENDING!', '#00ff88');
 
-  // Flash floor number in HUD
   const hudFloor = document.getElementById('hud-floor');
   if (hudFloor) {
     hudFloor.textContent = '1 (READY)';
@@ -42,7 +45,62 @@ readyCircle.onDescentTriggered = () => {
   }
 };
 
-// --- LOBBY UI & NETWORKING HOOKS ---
+// --- IN-WORLD WARDROBE & DRESSING MIRROR LOGIC ---
+const wardrobeModal = document.getElementById('wardrobe-modal');
+const btnCloseWardrobe = document.getElementById('btn-close-wardrobe');
+const wardrobePreviewCircle = document.getElementById('wardrobe-avatar-preview');
+const inputPlayerName = document.getElementById('input-player-name');
+const hudAvatar = document.getElementById('hud-avatar');
+const hudPlayerName = document.getElementById('hud-player-name');
+
+function openWardrobe() {
+  wardrobeModal.classList.remove('hidden');
+  inputPlayerName.focus();
+  inputPlayerName.select();
+  audio.playSwing();
+}
+
+function closeWardrobe() {
+  wardrobeModal.classList.add('hidden');
+  audio.playFootstep();
+}
+
+btnCloseWardrobe.addEventListener('click', closeWardrobe);
+
+// Close on Escape key
+window.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && !wardrobeModal.classList.contains('hidden')) {
+    closeWardrobe();
+  }
+});
+
+// Name input in wardrobe
+inputPlayerName.addEventListener('input', (e) => {
+  player.name = e.target.value.trim() || 'SlopCrawler';
+  hudPlayerName.textContent = player.name;
+  broadcastMyState();
+});
+
+// Color picker buttons in wardrobe
+document.querySelectorAll('.color-btn').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.color-btn').forEach((b) => b.classList.remove('selected'));
+    btn.classList.add('selected');
+    player.color = btn.getAttribute('data-color');
+
+    // Sync preview in mirror modal and HUD
+    wardrobePreviewCircle.style.background = player.color;
+    wardrobePreviewCircle.style.boxShadow = `0 0 16px ${player.color}`;
+    hudAvatar.style.background = player.color;
+    hudAvatar.style.boxShadow = `0 0 12px ${player.color}`;
+
+    audio.playSwing();
+    particles.spawnComicText(player.x, player.y - 20, 'DYE APPLIED!', player.color);
+    broadcastMyState();
+  });
+});
+
+// --- LOBBY CO-OP NETWORKING UI ---
 const lobbyModal = document.getElementById('lobby-modal');
 const btnOpenLobby = document.getElementById('btn-open-lobby');
 const btnCloseLobby = document.getElementById('btn-close-lobby');
@@ -54,30 +112,10 @@ const displayRoomCode = document.getElementById('display-room-code');
 const btnCopyLink = document.getElementById('btn-copy-link');
 const partyCount = document.getElementById('party-count');
 const partyRoster = document.getElementById('party-roster');
-const inputPlayerName = document.getElementById('input-player-name');
 const hudNetworkStatus = document.getElementById('hud-network-status');
-const hudAvatar = document.getElementById('hud-avatar');
-const hudPlayerName = document.getElementById('hud-player-name');
 
 btnOpenLobby.addEventListener('click', () => lobbyModal.classList.remove('hidden'));
 btnCloseLobby.addEventListener('click', () => lobbyModal.classList.add('hidden'));
-
-inputPlayerName.addEventListener('input', (e) => {
-  player.name = e.target.value.trim() || 'SlopCrawler';
-  hudPlayerName.textContent = player.name;
-  broadcastMyState();
-});
-
-document.querySelectorAll('.color-btn').forEach((btn) => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('.color-btn').forEach((b) => b.classList.remove('selected'));
-    btn.classList.add('selected');
-    player.color = btn.getAttribute('data-color');
-    hudAvatar.style.background = player.color;
-    hudAvatar.style.boxShadow = `0 0 12px ${player.color}`;
-    broadcastMyState();
-  });
-});
 
 function updatePartyRoster() {
   partyRoster.innerHTML = '';
@@ -266,9 +304,21 @@ function gameLoop(now) {
   player.update(dt, input, dungeonBounds);
   dummy.update(dt);
   readyCircle.update(dt, player, network.remotePlayers);
+  wardrobeStation.update(dt);
   player.syncHUD();
 
-  // Left Shift Roll
+  // [E] Key interaction: check if player pressed [E] near the Wardrobe Mirror
+  if (input.justPressedE) {
+    if (wardrobeStation.isPlayerNearby(player)) {
+      if (wardrobeModal.classList.contains('hidden')) {
+        openWardrobe();
+      } else {
+        closeWardrobe();
+      }
+    }
+  }
+
+  // Left Shift Roll (only when modal is not actively typing)
   if (!wasRolling && player.isRolling) {
     audio.playRoll();
     particles.spawnDashBurst(player.x, player.y, Math.atan2(player.rollDirY, player.rollDirX), player.color);
@@ -277,7 +327,7 @@ function gameLoop(now) {
   }
 
   // Left Click Attack
-  if (input.justPressedLeft) {
+  if (input.justPressedLeft && wardrobeModal.classList.contains('hidden') && lobbyModal.classList.contains('hidden')) {
     player.triggerAttack();
     audio.playSwing();
     particles.spawnComicText(
@@ -291,7 +341,7 @@ function gameLoop(now) {
   }
 
   // Right Click Slap
-  if (input.justPressedRight) {
+  if (input.justPressedRight && wardrobeModal.classList.contains('hidden') && lobbyModal.classList.contains('hidden')) {
     player.triggerSlap();
     audio.playBonk();
     particles.spawnComicText(
@@ -314,7 +364,7 @@ function gameLoop(now) {
   // Background stone floor
   renderer.drawDungeonFloor(dungeonBounds);
 
-  // Ready Ritual Circle (drawn on ground beneath entities)
+  // Ready Ritual Circle
   readyCircle.draw(renderer.ctx);
 
   // Corner torches
@@ -322,6 +372,9 @@ function gameLoop(now) {
   renderer.drawTorch(560, -560, now * 0.001);
   renderer.drawTorch(-560, 560, now * 0.001);
   renderer.drawTorch(560, 560, now * 0.001);
+
+  // Interactive in-world Dressing Mirror / Wardrobe Station
+  wardrobeStation.draw(renderer.ctx, player);
 
   // Draw Training Dummy
   dummy.draw(renderer.ctx);
@@ -347,4 +400,4 @@ function gameLoop(now) {
 }
 
 requestAnimationFrame(gameLoop);
-console.log('Step 2.3: Ready Ritual Circle integrated successfully');
+console.log('In-world Wardrobe Mirror integrated successfully');

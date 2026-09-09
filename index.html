@@ -50,19 +50,28 @@
         <button id="btn-open-lobby" class="lobby-btn">LOBBY / CO-OP</button>
       </div>
 
-      <!-- Multiplayer Lobby Modal Overlay -->
-      <div id="lobby-modal" class="modal-backdrop interactive hidden">
-        <div class="modal-card">
-          <h2 class="modal-title">DUNGEON SLOP LOBBY</h2>
-          <p class="modal-subtitle">Delve with up to 6 players via WebRTC</p>
+      <!-- In-World Wardrobe & Dye Station Modal (Triggered by [E] at the Mirror) -->
+      <div id="wardrobe-modal" class="modal-backdrop interactive hidden">
+        <div class="modal-card wardrobe-card">
+          <div class="wardrobe-header">
+            <span class="wardrobe-icon">🪞</span>
+            <div>
+              <h2 class="modal-title">DRESSING MIRROR</h2>
+              <p class="modal-subtitle">Customize your in-game identity</p>
+            </div>
+          </div>
 
-          <div class="lobby-section">
-            <label>Your Adventurer Name</label>
-            <input type="text" id="input-player-name" value="SlopCrawler" maxlength="14" />
+          <div class="wardrobe-preview-box">
+            <div id="wardrobe-avatar-preview" class="wardrobe-preview-circle"></div>
           </div>
 
           <div class="lobby-section">
-            <label>Color Hue</label>
+            <label>Adventurer Nickname</label>
+            <input type="text" id="input-player-name" value="SlopCrawler" maxlength="14" placeholder="Enter name..." />
+          </div>
+
+          <div class="lobby-section">
+            <label>Color Dye</label>
             <div class="color-palette">
               <button class="color-btn selected" style="background:#00f0ff;" data-color="#00f0ff"></button>
               <button class="color-btn" style="background:#ff3366;" data-color="#ff3366"></button>
@@ -73,7 +82,15 @@
             </div>
           </div>
 
-          <div class="lobby-divider"></div>
+          <button id="btn-close-wardrobe" class="action-btn primary-btn">DONE [ESC / E]</button>
+        </div>
+      </div>
+
+      <!-- Co-op Room Connection Modal -->
+      <div id="lobby-modal" class="modal-backdrop interactive hidden">
+        <div class="modal-card">
+          <h2 class="modal-title">CO-OP MULTIPLAYER</h2>
+          <p class="modal-subtitle">Invite up to 5 friends via WebRTC room code</p>
 
           <div class="lobby-actions">
             <button id="btn-create-room" class="action-btn primary-btn">CREATE ROOM (HOST)</button>
