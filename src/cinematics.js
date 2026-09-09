@@ -6,10 +6,22 @@
 
 export class CinematicManager {
   constructor() {
-    this.activeCinematic = null; // { type, timer, duration, player, data }
-    this.projectiles = []; // e.g. Hollow Purple orbs, Dismantle wind blades
+    this.activeCinematics = []; // Array of active cinematics { type, timer, duration, caster, x, y, angle }
+    this.projectiles = []; // e.g. Hollow Purple orbs, Dismantle wind blades, Spartan Kick
     this.screenShake = 0;
     this.shakeDecay = 8; // decay per second
+  }
+
+  get activeCinematic() {
+    return this.activeCinematics[this.activeCinematics.length - 1] || null;
+  }
+
+  set activeCinematic(val) {
+    if (!val) {
+      this.activeCinematics = [];
+    } else {
+      this.activeCinematics.push(val);
+    }
   }
 
   trigger(type, player) {
@@ -18,20 +30,22 @@ export class CinematicManager {
     if (type === 'hollow_purple') {
       // Gojo's Hollow Purple: Screen collapses into dark purple vortex,
       // then launches a massive 160px expanding sphere along player's aim angle!
-      this.activeCinematic = {
+      this.activeCinematics.push({
         type: 'hollow_purple',
         timer: 1.4,
         duration: 1.4,
+        caster: player,
         x: player.x,
         y: player.y,
         angle: player.angle
-      };
+      });
       this.addScreenShake(18);
 
       // Spawn Hollow Purple projectile
       const speed = 680;
       this.projectiles.push({
         type: 'hollow_purple',
+        caster: player,
         x: player.x,
         y: player.y,
         vx: Math.cos(player.angle) * speed,
@@ -46,51 +60,56 @@ export class CinematicManager {
     } else if (type === 'world_cutting_slash') {
       // Sukuna's World Cutting Slash: Reality freezes in monochrome gray for 0.35s,
       // followed by a violent diagonal crimson dimensional rip bisecting the whole viewport
-      this.activeCinematic = {
+      this.activeCinematics.push({
         type: 'world_cutting_slash',
         timer: 1.2,
         duration: 1.2,
+        caster: player,
         x: player.x,
         y: player.y,
         angle: player.angle
-      };
+      });
       this.addScreenShake(26);
 
       // Spawn expanding dimensional cut wave
       const speed = 820;
       this.projectiles.push({
         type: 'world_cutting_slash',
+        caster: player,
         x: player.x,
         y: player.y,
         vx: Math.cos(player.angle) * speed,
         vy: Math.sin(player.angle) * speed,
         width: 220,
+        radius: 110, // Full width collision coverage
         damage: 350,
         life: 1.0,
         angle: player.angle
       });
     } else if (type === 'inverted_chain_rampage') {
       // Toji's Thousand-Mile Chain Whirlwind: 360-degree high-velocity iron chain storm
-      this.activeCinematic = {
+      this.activeCinematics.push({
         type: 'inverted_chain_rampage',
-        timer: 1.1,
-        duration: 1.1,
+        timer: 1.2,
+        duration: 1.2,
+        caster: player,
         x: player.x,
         y: player.y,
         angle: player.angle
-      };
-      this.addScreenShake(12);
+      });
+      this.addScreenShake(14);
     } else if (type === 'berserker_rage') {
       // Guts' Berserker Beast Armor: Blood-red pulsing vignette, invulnerability for 6.0s,
       // and colossal CLANG ground ruptures
       player.isInvulnerable = true;
       player.currentSpeed = player.baseSpeed * 1.5;
-      this.activeCinematic = {
+      this.activeCinematics.push({
         type: 'berserker_rage',
         timer: 6.0,
         duration: 6.0,
+        caster: player,
         player
-      };
+      });
       this.addScreenShake(22);
 
       setTimeout(() => {
@@ -99,12 +118,30 @@ export class CinematicManager {
           player.currentSpeed = player.baseSpeed;
         }
       }, 6000);
+    } else if (type === 'spartan_kick') {
+      // Toji's Spartan Kick: Heavy forward shockwave projectile with STUN
+      this.addScreenShake(16);
+      this.projectiles.push({
+        type: 'spartan_kick',
+        caster: player,
+        x: player.x + Math.cos(player.angle) * 32,
+        y: player.y + Math.sin(player.angle) * 32,
+        vx: Math.cos(player.angle) * 780,
+        vy: Math.sin(player.angle) * 780,
+        radius: 44,
+        damage: 85,
+        isStun: true,
+        stunDuration: 2.5,
+        life: 0.32,
+        angle: player.angle
+      });
     } else if (type === 'dismantle') {
       // Sukuna's Base Q Dismantle: 3 rapid curved razor wind slashes
       for (let i = -1; i <= 1; i++) {
         const spreadAngle = player.angle + i * 0.18;
         this.projectiles.push({
           type: 'dismantle',
+          caster: player,
           x: player.x,
           y: player.y,
           vx: Math.cos(spreadAngle) * 720,
@@ -120,6 +157,7 @@ export class CinematicManager {
       this.addScreenShake(14);
       this.projectiles.push({
         type: 'cannon_arm',
+        caster: player,
         x: player.x + Math.cos(player.angle) * 35,
         y: player.y + Math.sin(player.angle) * 35,
         vx: Math.cos(player.angle) * 580,
@@ -149,11 +187,41 @@ export class CinematicManager {
       this.screenShake = Math.max(0, this.screenShake - this.shakeDecay * dt * this.screenShake);
     }
 
-    // Active full-screen cinematic timer
-    if (this.activeCinematic) {
-      this.activeCinematic.timer -= dt;
-      if (this.activeCinematic.timer <= 0) {
-        this.activeCinematic = null;
+    // Active full-screen cinematics & continuous hit detection
+    for (let cIdx = this.activeCinematics.length - 1; cIdx >= 0; cIdx--) {
+      const c = this.activeCinematics[cIdx];
+      c.timer -= dt;
+
+      // Toji's Inverted Chain Whirlwind continuous hit detection locked on caster
+      if (c.type === 'inverted_chain_rampage') {
+        const posX = c.caster ? c.caster.x : c.x;
+        const posY = c.caster ? c.caster.y : c.y;
+        for (const target of targets) {
+          if (!target || target === c.caster) continue;
+          const dx = target.x - posX;
+          const dy = target.y - posY;
+          const dist = Math.hypot(dx, dy);
+          if (dist <= 145) {
+            if (!c.lastHitMap) c.lastHitMap = new Map();
+            const lastHit = c.lastHitMap.get(target) || 0;
+            const now = performance.now();
+            if (now - lastHit >= 220) {
+              c.lastHitMap.set(target, now);
+              if (onHitCallback) {
+                onHitCallback(target, {
+                  type: 'whirlwind',
+                  damage: 55,
+                  angle: Math.atan2(dy, dx),
+                  knockback: 450
+                });
+              }
+            }
+          }
+        }
+      }
+
+      if (c.timer <= 0) {
+        this.activeCinematics.splice(cIdx, 1);
       }
     }
 
@@ -171,11 +239,11 @@ export class CinematicManager {
 
       // Check collision with targets (Dummy, etc.)
       for (const target of targets) {
-        if (!target) continue;
+        if (!target || target === proj.caster) continue;
         const dx = target.x - proj.x;
         const dy = target.y - proj.y;
         const dist = Math.hypot(dx, dy);
-        const hitRadius = (proj.radius || 40) + (target.radius || 24);
+        const hitRadius = (proj.radius || (proj.width ? proj.width * 0.5 : 40)) + (target.radius || 24);
 
         if (dist <= hitRadius && !proj.hasHit) {
           proj.hasHit = true;
@@ -274,50 +342,72 @@ export class CinematicManager {
         ctx.beginPath();
         ctx.arc(0, 0, proj.radius * 0.45, 0, Math.PI * 2);
         ctx.fill();
+      } else if (proj.type === 'spartan_kick') {
+        // Concussive sonic boom kick shockwave cone
+        ctx.rotate(proj.angle);
+        ctx.strokeStyle = '#38bdf8';
+        ctx.shadowColor = '#00f0ff';
+        ctx.shadowBlur = 22;
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.moveTo(14, 0);
+        ctx.lineTo(-24, -22);
+        ctx.moveTo(14, 0);
+        ctx.lineTo(-24, 22);
+        ctx.stroke();
+
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.arc(0, 0, proj.radius * 0.65, -Math.PI * 0.45, Math.PI * 0.45);
+        ctx.stroke();
       }
 
       ctx.restore();
     }
 
-    // 2. Toji's Inverted Chain Rampage Whirlwind in world
-    if (this.activeCinematic && this.activeCinematic.type === 'inverted_chain_rampage') {
-      const c = this.activeCinematic;
-      const progress = 1 - c.timer / c.duration;
-      const sweepAngle = progress * Math.PI * 8; // spins 4 complete revolutions!
-      const maxRange = 135;
+    // 2. Toji's Inverted Chain Rampage Whirlwind in world (locked to caster position!)
+    for (const c of this.activeCinematics) {
+      if (c.type === 'inverted_chain_rampage') {
+        const posX = c.caster ? c.caster.x : c.x;
+        const posY = c.caster ? c.caster.y : c.y;
+        const progress = 1 - c.timer / c.duration;
+        const sweepAngle = progress * Math.PI * 8; // spins 4 complete revolutions!
+        const maxRange = 135;
 
-      ctx.save();
-      ctx.translate(c.x, c.y);
+        ctx.save();
+        ctx.translate(posX, posY);
 
-      // Glowing Iron Chain Arc
-      ctx.strokeStyle = '#38bdf8';
-      ctx.shadowColor = '#00f0ff';
-      ctx.shadowBlur = 20;
-      ctx.lineWidth = 4;
-      ctx.beginPath();
-      ctx.arc(0, 0, maxRange, sweepAngle - Math.PI * 0.9, sweepAngle);
-      ctx.stroke();
+        // Glowing Iron Chain Arc
+        ctx.strokeStyle = '#38bdf8';
+        ctx.shadowColor = '#00f0ff';
+        ctx.shadowBlur = 20;
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.arc(0, 0, maxRange, sweepAngle - Math.PI * 0.9, sweepAngle);
+        ctx.stroke();
 
-      // Chain links
-      ctx.strokeStyle = '#f8fafc';
-      ctx.lineWidth = 2.5;
-      ctx.setLineDash([4, 4]);
-      ctx.beginPath();
-      ctx.arc(0, 0, maxRange * 0.8, sweepAngle - Math.PI * 0.7, sweepAngle);
-      ctx.stroke();
-      ctx.setLineDash([]);
+        // Chain links
+        ctx.strokeStyle = '#f8fafc';
+        ctx.lineWidth = 2.5;
+        ctx.setLineDash([4, 4]);
+        ctx.beginPath();
+        ctx.arc(0, 0, maxRange * 0.8, sweepAngle - Math.PI * 0.7, sweepAngle);
+        ctx.stroke();
+        ctx.setLineDash([]);
 
-      // Inverted Spear tip at end of chain
-      const tipX = Math.cos(sweepAngle) * maxRange;
-      const tipY = Math.sin(sweepAngle) * maxRange;
-      ctx.fillStyle = '#ffffff';
-      ctx.shadowColor = '#38bdf8';
-      ctx.shadowBlur = 15;
-      ctx.beginPath();
-      ctx.arc(tipX, tipY, 8, 0, Math.PI * 2);
-      ctx.fill();
+        // Inverted Spear tip at end of chain
+        const tipX = Math.cos(sweepAngle) * maxRange;
+        const tipY = Math.sin(sweepAngle) * maxRange;
+        ctx.fillStyle = '#ffffff';
+        ctx.shadowColor = '#38bdf8';
+        ctx.shadowBlur = 15;
+        ctx.beginPath();
+        ctx.arc(tipX, tipY, 8, 0, Math.PI * 2);
+        ctx.fill();
 
-      ctx.restore();
+        ctx.restore();
+      }
     }
   }
 
@@ -325,71 +415,72 @@ export class CinematicManager {
    * Draws full-screen canvas overlays (Post-Processing Vignettes, Screen Slices, Color Tinting)
    */
   drawScreenOverlay(ctx, width, height) {
-    if (!this.activeCinematic) return;
+    if (this.activeCinematics.length === 0) return;
 
-    const c = this.activeCinematic;
-    const progress = 1 - c.timer / c.duration;
+    for (const c of this.activeCinematics) {
+      const progress = 1 - c.timer / c.duration;
 
-    if (c.type === 'hollow_purple') {
-      // Screen collapses into dark purple cosmic vignette
-      const alpha = Math.sin(progress * Math.PI) * 0.65;
-      ctx.save();
-      const grad = ctx.createRadialGradient(width / 2, height / 2, width * 0.2, width / 2, height / 2, width * 0.75);
-      grad.addColorStop(0, 'rgba(147, 51, 234, 0)');
-      grad.addColorStop(1, `rgba(45, 10, 80, ${alpha})`);
-      ctx.fillStyle = grad;
-      ctx.fillRect(0, 0, width, height);
-
-      // Electric flash on launch
-      if (progress < 0.25) {
-        ctx.fillStyle = `rgba(255, 255, 255, ${(0.25 - progress) * 1.5})`;
+      if (c.type === 'hollow_purple') {
+        // Screen collapses into dark purple cosmic vignette
+        const alpha = Math.sin(progress * Math.PI) * 0.65;
+        ctx.save();
+        const grad = ctx.createRadialGradient(width / 2, height / 2, width * 0.2, width / 2, height / 2, width * 0.75);
+        grad.addColorStop(0, 'rgba(147, 51, 234, 0)');
+        grad.addColorStop(1, `rgba(45, 10, 80, ${alpha})`);
+        ctx.fillStyle = grad;
         ctx.fillRect(0, 0, width, height);
+
+        // Electric flash on launch
+        if (progress < 0.25) {
+          ctx.fillStyle = `rgba(255, 255, 255, ${(0.25 - progress) * 1.5})`;
+          ctx.fillRect(0, 0, width, height);
+        }
+        ctx.restore();
+      } else if (c.type === 'world_cutting_slash') {
+        // 1. Reality freeze: Desaturate / darken screen
+        ctx.save();
+        if (progress < 0.35) {
+          ctx.fillStyle = 'rgba(15, 15, 25, 0.45)';
+          ctx.fillRect(0, 0, width, height);
+        } else {
+          // 2. Full-screen diagonal dimensional slash bisecting the screen!
+          const slashProgress = (progress - 0.35) / 0.65;
+          const slashAlpha = Math.max(0, 1 - slashProgress);
+
+          ctx.strokeStyle = `rgba(255, 42, 95, ${slashAlpha})`;
+          ctx.lineWidth = 14;
+          ctx.shadowColor = '#ff2a5f';
+          ctx.shadowBlur = 32;
+
+          ctx.beginPath();
+          ctx.moveTo(0, height * 0.15);
+          ctx.lineTo(width, height * 0.85);
+          ctx.stroke();
+
+          // White core cut line
+          ctx.strokeStyle = `rgba(255, 255, 255, ${slashAlpha * 1.2})`;
+          ctx.lineWidth = 4;
+          ctx.beginPath();
+          ctx.moveTo(0, height * 0.15);
+          ctx.lineTo(width, height * 0.85);
+          ctx.stroke();
+
+          // Shift canvas halves slightly along the cut
+          ctx.fillStyle = `rgba(255, 0, 80, ${slashAlpha * 0.15})`;
+          ctx.fillRect(0, 0, width, height);
+        }
+        ctx.restore();
+      } else if (c.type === 'berserker_rage') {
+        // Pulsing blood-red vignette around screen edges
+        const pulse = 0.35 + Math.sin(Date.now() * 0.008) * 0.2;
+        ctx.save();
+        const grad = ctx.createRadialGradient(width / 2, height / 2, width * 0.3, width / 2, height / 2, width * 0.75);
+        grad.addColorStop(0, 'rgba(0, 0, 0, 0)');
+        grad.addColorStop(1, `rgba(220, 20, 20, ${pulse})`);
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, width, height);
+        ctx.restore();
       }
-      ctx.restore();
-    } else if (c.type === 'world_cutting_slash') {
-      // 1. Reality freeze: Desaturate / darken screen
-      ctx.save();
-      if (progress < 0.35) {
-        ctx.fillStyle = 'rgba(15, 15, 25, 0.45)';
-        ctx.fillRect(0, 0, width, height);
-      } else {
-        // 2. Full-screen diagonal dimensional slash bisecting the screen!
-        const slashProgress = (progress - 0.35) / 0.65;
-        const slashAlpha = Math.max(0, 1 - slashProgress);
-
-        ctx.strokeStyle = `rgba(255, 42, 95, ${slashAlpha})`;
-        ctx.lineWidth = 14;
-        ctx.shadowColor = '#ff2a5f';
-        ctx.shadowBlur = 32;
-
-        ctx.beginPath();
-        ctx.moveTo(0, height * 0.15);
-        ctx.lineTo(width, height * 0.85);
-        ctx.stroke();
-
-        // White core cut line
-        ctx.strokeStyle = `rgba(255, 255, 255, ${slashAlpha * 1.2})`;
-        ctx.lineWidth = 4;
-        ctx.beginPath();
-        ctx.moveTo(0, height * 0.15);
-        ctx.lineTo(width, height * 0.85);
-        ctx.stroke();
-
-        // Shift canvas halves slightly along the cut
-        ctx.fillStyle = `rgba(255, 0, 80, ${slashAlpha * 0.15})`;
-        ctx.fillRect(0, 0, width, height);
-      }
-      ctx.restore();
-    } else if (c.type === 'berserker_rage') {
-      // Pulsing blood-red vignette around screen edges
-      const pulse = 0.35 + Math.sin(Date.now() * 0.008) * 0.2;
-      ctx.save();
-      const grad = ctx.createRadialGradient(width / 2, height / 2, width * 0.3, width / 2, height / 2, width * 0.75);
-      grad.addColorStop(0, 'rgba(0, 0, 0, 0)');
-      grad.addColorStop(1, `rgba(220, 20, 20, ${pulse})`);
-      ctx.fillStyle = grad;
-      ctx.fillRect(0, 0, width, height);
-      ctx.restore();
     }
   }
 }

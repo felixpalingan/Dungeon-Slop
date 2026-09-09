@@ -23,9 +23,31 @@ export class CombatSystem {
       hands: 1
     };
 
-    const reach = weapon.reach || 55;
-    const arcHalfAngle = weapon.hands === 2 ? Math.PI * 0.48 : Math.PI * 0.35; // 2H weapons have wide sweeping cleave!
+    let reach = weapon.reach || 55;
+    let arcHalfAngle = weapon.hands === 2 ? Math.PI * 0.48 : Math.PI * 0.35;
     const baseDamage = weapon.damage || 15;
+    const isBlue = weapon.visual === 'lapse_blue' || weapon.id === 'lapse_blue';
+
+    // Tailor hurtbox reach & arc to match visual weapon animations
+    if (weapon.visual === 'dragon_slayer' || weapon.visual === 'greatsword_2h' || weapon.visual === 'sukuna_cleaver') {
+      reach = Math.max(reach, 88);
+      arcHalfAngle = Math.PI * 0.65; // wide 130° sweep
+    } else if (weapon.visual === 'inverted_spear_chain') {
+      reach = Math.max(reach, 98);
+      arcHalfAngle = Math.PI * 0.32; // piercing thrust
+    } else if (weapon.visual === 'lapse_blue') {
+      reach = Math.max(reach, 85);
+      arcHalfAngle = Math.PI * 0.38; // forward gravity vortex
+    } else if (weapon.visual === 'warhammer_2h') {
+      reach = Math.max(reach, 85);
+      arcHalfAngle = Math.PI * 0.45;
+    } else if (weapon.visual === 'crystal_blade') {
+      reach = Math.max(reach, 72);
+      arcHalfAngle = Math.PI * 0.48;
+    } else if (weapon.visual === 'sword_1h') {
+      reach = Math.max(reach, 65);
+      arcHalfAngle = Math.PI * 0.42;
+    }
 
     let hits = [];
 
@@ -36,8 +58,9 @@ export class CombatSystem {
       const dy = target.y - attacker.y;
       const dist = Math.hypot(dx, dy);
 
-      // Check distance against target radius + weapon reach
-      if (dist <= reach + (target.radius || 20)) {
+      // Check distance against attacker radius + weapon reach + target radius
+      const maxHitDist = (attacker.radius || 22) + reach + (target.radius || 24);
+      if (dist <= maxHitDist) {
         // Check angle within attack cone facing mouse/angle
         const angleToTarget = Math.atan2(dy, dx);
         let angleDiff = angleToTarget - attacker.angle;
@@ -57,13 +80,20 @@ export class CombatSystem {
             ? Math.round(finalDamage * (1 - (target.equipment?.offhand?.blockMitigation || 0.6)))
             : finalDamage;
 
+          // Gojo's Lapse Blue pulls enemies INWARD with negative knockback
+          let knockback = weapon.hands === 2 ? 520 : 340;
+          if (isBlue) {
+            knockback = -480; // Suction pull toward Gojo!
+          }
+
           hits.push({
             target,
             damage: damageTaken,
             isCrit,
             isBlocked,
+            isPull: isBlue,
             angle: attacker.angle,
-            knockback: weapon.hands === 2 ? 500 : 320
+            knockback
           });
         }
       }
@@ -151,10 +181,11 @@ export class CombatSystem {
         triggerCinematicCallback('dismantle', player);
       }
     } else if (chest.baseQ === 'spartan_kick' || chest.visual === 'toji_shirt') {
-      // Spartan Kick: Colossal forward lunge & knockback shockwave
+      // Spartan Kick: Colossal forward lunge & knockback shockwave + STUN
       this.audio.playSpartanKick();
-      player.vx = Math.cos(player.angle) * 750;
-      player.vy = Math.sin(player.angle) * 750;
+      if (player.startLunge) {
+        player.startLunge(player.angle, 880, 0.28);
+      }
       this.particles.spawnComicText(player.x, player.y - 32, 'SPARTAN KICK!', '#38bdf8');
       this.particles.spawnDashBurst(player.x, player.y, player.angle, '#38bdf8');
       if (triggerCinematicCallback) {

@@ -39,17 +39,29 @@ export class Player {
     this.knockbackVx = 0;
     this.knockbackVy = 0;
 
-    // Weapon Attack Animation (Left Click)
+    // Weapon Attack Animation (Left Click) & Cooldown
     this.isAttacking = false;
     this.attackDuration = 0.22; // snappy, satisfying swing
     this.attackTimer = 0;
     this.attackProgress = 0; // 0 to 1
+    this.attackCooldownTimer = 0; // prevents click spamming
 
-    // Offhand / Slap Animation (Right Click)
+    // Offhand / Slap Animation (Right Click) & Cooldown
     this.isSlapping = false;
     this.slapDuration = 0.18;
     this.slapTimer = 0;
     this.slapProgress = 0; // 0 to 1
+    this.slapCooldownTimer = 0;
+
+    // Stun status effect (e.g. Spartan Kick)
+    this.isStunned = false;
+    this.stunTimer = 0;
+
+    // Lunge momentum physics (e.g. Spartan Kick forward thrust)
+    this.lungeTimer = 0;
+    this.lungeDuration = 0;
+    this.lungeVx = 0;
+    this.lungeVy = 0;
 
     // Shield Blocking state
     this.isBlocking = false;
@@ -70,18 +82,38 @@ export class Player {
   }
 
   triggerAttack() {
+    if (this.isStunned || this.isAttacking || this.attackCooldownTimer > 0) return false;
     this.isAttacking = true;
     const weapon = this.equipment?.weapon;
     const speed = weapon?.speed || 1.0;
     this.attackDuration = Math.max(0.12, 0.22 / speed);
+    this.attackCooldownTimer = Math.max(0.18, 0.32 / speed);
     this.attackTimer = this.attackDuration;
     this.attackProgress = 0;
+    return true;
   }
 
   triggerSlap() {
+    if (this.isStunned || this.isSlapping || this.slapCooldownTimer > 0) return false;
     this.isSlapping = true;
     this.slapTimer = this.slapDuration;
+    this.slapCooldownTimer = 0.24;
     this.slapProgress = 0;
+    return true;
+  }
+
+  startLunge(angle, speed = 850, duration = 0.26) {
+    this.lungeTimer = duration;
+    this.lungeDuration = duration;
+    this.lungeVx = Math.cos(angle) * speed;
+    this.lungeVy = Math.sin(angle) * speed;
+  }
+
+  applyStun(duration = 2.5) {
+    this.isStunned = true;
+    this.stunTimer = Math.max(this.stunTimer, duration);
+    this.isAttacking = false;
+    this.isBlocking = false;
   }
 
   applyKnockback(kx, ky) {
@@ -162,6 +194,26 @@ export class Player {
   }
 
   update(dt, input, bounds = { minX: -580, minY: -580, maxX: 580, maxY: 580 }) {
+    // 0. Cooldown timers
+    this.attackCooldownTimer = Math.max(0, this.attackCooldownTimer - dt);
+    this.slapCooldownTimer = Math.max(0, this.slapCooldownTimer - dt);
+
+    // Stun check
+    if (this.isStunned) {
+      this.stunTimer -= dt;
+      if (this.stunTimer <= 0) {
+        this.isStunned = false;
+        this.stunTimer = 0;
+      }
+      this.vx = 0;
+      this.vy = 0;
+      this.x += this.knockbackVx * dt;
+      this.y += this.knockbackVy * dt;
+      this.knockbackVx *= Math.pow(0.001, dt);
+      this.knockbackVy *= Math.pow(0.001, dt);
+      return;
+    }
+
     // 1. Mouse Aiming angle
     const screenCenterX = window.innerWidth / 2;
     const screenCenterY = window.innerHeight / 2;
@@ -187,8 +239,22 @@ export class Player {
       }
     }
 
-    // 4. Roll / Dash state
-    if (this.isRolling) {
+    // Lunge physics (e.g. Spartan Kick forward thrust)
+    if (this.lungeTimer > 0) {
+      this.lungeTimer -= dt;
+      this.vx = this.lungeVx;
+      this.vy = this.lungeVy;
+      if (Math.random() < 0.6) {
+        this.afterImages.push({
+          x: this.x,
+          y: this.y,
+          angle: this.angle,
+          color: '#38bdf8',
+          alpha: 0.55
+        });
+      }
+    } else if (this.isRolling) {
+      // 4. Roll / Dash state
       this.rollTimer -= dt;
 
       if (Math.random() < 0.65) {

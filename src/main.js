@@ -422,6 +422,7 @@ function broadcastMyState() {
     isBlocking: player.isBlocking,
     hp: player.hp,
     maxHp: player.maxHp,
+    isStunned: player.isStunned,
     equipment: player.equipment
   };
 
@@ -468,19 +469,43 @@ network.onMessageReceived = (fromPeerId, msg) => {
       particles.spawnComicText(player.x, player.y - 20, 'BONK!', '#ff0055');
     }
   } else if (msg.type === 'DUMMY_HIT') {
-    dummy.takeHit(msg.damage, msg.angle);
+    dummy.takeHit(msg.damage, msg.angle, msg.isPull ? -480 : 0);
+    if (msg.isPull) {
+      dummy.pullTowards(msg.pullX || 0, msg.pullY || 0, 45);
+    }
     audio.playBonk();
-    const hitLabel = msg.isCrit ? `CRIT! -${msg.damage}` : `-${msg.damage}`;
-    particles.spawnComicText(dummy.x, dummy.y - 24, hitLabel, msg.isCrit ? '#ff0055' : '#ffea00');
+    const hitLabel = msg.isCrit ? `CRIT! -${msg.damage}` : (msg.isPull ? `PULL! -${msg.damage}` : `-${msg.damage}`);
+    particles.spawnComicText(dummy.x, dummy.y - 24, hitLabel, msg.isCrit ? '#ff0055' : (msg.isPull ? '#00f0ff' : '#ffea00'));
   } else if (msg.type === 'CINEMATIC_ULTIMATE') {
-    // Remote peer triggered an anime cinematic ultimate!
-    const remote = network.remotePlayers.get(fromPeerId) || { x: msg.x, y: msg.y, angle: msg.angle };
-    cinematics.trigger(msg.ultimateType, remote);
+    // If this cinematic was initiated by ME, do not re-trigger!
+    if (msg.peerId && msg.peerId === network.myPeerId) return;
+
+    // Find the actual caster using msg.peerId or fallback to sender/coordinates
+    const caster = (msg.peerId ? network.remotePlayers.get(msg.peerId) : null) 
+      || network.remotePlayers.get(fromPeerId) 
+      || { x: msg.x, y: msg.y, angle: msg.angle };
+
+    cinematics.trigger(msg.ultimateType, caster);
     if (msg.ultimateType === 'hollow_purple') audio.playHollowPurple();
     else if (msg.ultimateType === 'world_cutting_slash') audio.playWorldCuttingSlash();
     else if (msg.ultimateType === 'inverted_chain_rampage') audio.playChainRampage();
     else if (msg.ultimateType === 'berserker_rage') { audio.playBerserkRoar(); audio.playClang(); }
-    if (network.isHost) network.broadcast(msg);
+    else if (msg.ultimateType === 'spartan_kick') audio.playSpartanKick();
+    else if (msg.ultimateType === 'dismantle') audio.playDismantleCuts();
+    else if (msg.ultimateType === 'cannon_arm') audio.playExplosion();
+    // Note: network.handleIncomingData already relays to other peers on the host; no duplicate broadcast here!
+  } else if (msg.type === 'TARGET_STUNNED') {
+    if (msg.targetPeerId === network.myPeerId) {
+      player.applyStun(msg.duration || 2.5);
+      audio.playBonk();
+      particles.spawnComicText(player.x, player.y - 32, 'STUNNED! 💫', '#fde047');
+    } else {
+      const remote = network.remotePlayers.get(msg.targetPeerId);
+      if (remote) {
+        remote.isStunned = true;
+        particles.spawnComicText(remote.x, remote.y - 32, 'STUNNED! 💫', '#fde047');
+      }
+    }
   } else if (msg.type === 'LOOT_SPAWNED') {
     const dropped = new GroundLoot(msg.item, msg.x, msg.y, msg.id);
     groundItems.set(dropped.id, dropped);
@@ -537,7 +562,10 @@ function handleAttacks() {
 
   for (const hit of hits) {
     if (hit.target === dummy) {
-      dummy.takeHit(hit.damage, hit.angle);
+      dummy.takeHit(hit.damage, hit.angle, hit.knockback || 0);
+      if (hit.isPull) {
+        dummy.pullTowards(player.x, player.y, 45);
+      }
       
       // Weapon specific impact sound fx!
       const weaponVisual = player.equipment?.weapon?.visual;
@@ -562,10 +590,18 @@ function handleAttacks() {
         audio.playBonk();
       }
 
-      const popupText = hit.isCrit ? `CRIT! -${hit.damage}` : `HIT! -${hit.damage}`;
-      particles.spawnComicText(dummy.x, dummy.y - 24, popupText, hit.isCrit ? '#ff0055' : '#fbbf24');
+      const popupText = hit.isCrit ? `CRIT! -${hit.damage}` : (hit.isPull ? `PULL! -${hit.damage}` : `HIT! -${hit.damage}`);
+      particles.spawnComicText(dummy.x, dummy.y - 24, popupText, hit.isCrit ? '#ff0055' : (hit.isPull ? '#00f0ff' : '#fbbf24'));
 
-      const hitMsg = { type: 'DUMMY_HIT', damage: hit.damage, angle: hit.angle, isCrit: hit.isCrit };
+      const hitMsg = {
+        type: 'DUMMY_HIT',
+        damage: hit.damage,
+        angle: hit.angle,
+        isCrit: hit.isCrit,
+        isPull: !!hit.isPull,
+        pullX: player.x,
+        pullY: player.y
+      };
       if (network.isHost) network.broadcast(hitMsg);
       else network.sendToHost(hitMsg);
     } else {
@@ -579,7 +615,8 @@ function handleAttacks() {
           else network.sendToHost(slapMsg);
 
           audio.playBonk();
-          particles.spawnComicText(remote.x, remote.y - 20, hit.isBlocked ? 'BLOCKED!' : 'WHACK!', '#ff3366');
+          const effectLabel = hit.isBlocked ? 'BLOCKED!' : (hit.isPull ? 'PULLED! 🌀' : 'WHACK!');
+          particles.spawnComicText(remote.x, remote.y - 20, effectLabel, hit.isPull ? '#00f0ff' : '#ff3366');
         }
       }
     }
@@ -659,17 +696,41 @@ function gameLoop(now) {
   // Check Set Bonus
   const activeSet = checkSetBonus(player.equipment);
 
-  // Update Cinematics & Projectiles (collision with training dummy)
-  cinematics.update(dt, [dummy], (target, proj) => {
+  // Update Cinematics & Projectiles (collision with training dummy and remote peers)
+  const cinematicTargets = [dummy, ...network.remotePlayers.values()];
+  cinematics.update(dt, cinematicTargets, (target, proj) => {
     if (target === dummy) {
-      dummy.takeHit(proj.damage, Math.atan2(proj.vy, proj.vx));
+      dummy.takeHit(proj.damage, Math.atan2(proj.vy || 0, proj.vx || 0), proj.isStun ? 0 : 350);
+      if (proj.isStun) {
+        dummy.applyStun(proj.stunDuration || 2.5);
+        particles.spawnComicText(dummy.x, dummy.y - 40, 'STUNNED! 💫', '#fde047');
+      }
       audio.playClang();
-      particles.spawnComicText(dummy.x, dummy.y - 28, `ULTIMATE! -${proj.damage}`, '#ff2a5f');
-      cinematics.addScreenShake(18);
+      particles.spawnComicText(dummy.x, dummy.y - 28, `${(proj.type || 'ULTIMATE').toUpperCase().replace(/_/g, ' ')}! -${proj.damage}`, '#ff2a5f');
+      cinematics.addScreenShake(16);
 
       const hitMsg = { type: 'DUMMY_HIT', damage: proj.damage, angle: 0, isCrit: true };
       if (network.isHost) network.broadcast(hitMsg);
       else network.sendToHost(hitMsg);
+    } else {
+      for (const [peerId, remote] of network.remotePlayers.entries()) {
+        if (remote === target) {
+          if (proj.isStun) {
+            remote.isStunned = true;
+            const stunMsg = { type: 'TARGET_STUNNED', targetPeerId: peerId, duration: proj.stunDuration || 2.5 };
+            if (network.isHost) network.broadcast(stunMsg);
+            else network.sendToHost(stunMsg);
+          }
+          if (proj.vx || proj.vy || proj.knockback) {
+            const kx = proj.vx ? proj.vx * 0.35 : Math.cos(proj.angle || 0) * (proj.knockback || 450);
+            const ky = proj.vy ? proj.vy * 0.35 : Math.sin(proj.angle || 0) * (proj.knockback || 450);
+            const slapMsg = { type: 'SLAP_KNOCKBACK', targetPeerId: peerId, kx, ky };
+            if (network.isHost) network.broadcast(slapMsg);
+            else network.sendToHost(slapMsg);
+          }
+          particles.spawnComicText(remote.x, remote.y - 24, `${(proj.type || 'HIT').toUpperCase().replace(/_/g, ' ')}!`, '#ff2a5f');
+        }
+      }
     }
   });
 
@@ -695,55 +756,57 @@ function gameLoop(now) {
     broadcastMyState();
   }
 
-  // Left Click Weapon Attack
-  if (input.justPressedLeft && !modalsOpen) {
-    player.triggerAttack();
-    playWeaponAttackSound(player.equipment?.weapon);
-    handleAttacks();
-    broadcastMyState();
+  // Left Click Weapon Attack (gated by triggerAttack cooldown & stun)
+  if (input.justPressedLeft && !modalsOpen && !player.isStunned) {
+    if (player.triggerAttack()) {
+      playWeaponAttackSound(player.equipment?.weapon);
+      handleAttacks();
+      broadcastMyState();
+    }
   }
 
-  // Right Click Slap / Special Off-hand
-  if (input.justPressedRight && !modalsOpen && !player.isBlocking) {
-    player.triggerSlap();
-    const offhandVisual = player.equipment?.offhand?.visual;
-    if (offhandVisual === 'reversal_red') {
-      audio.playRepulsionBurst();
-      cinematics.addScreenShake(6);
-      particles.spawnComicText(
-        player.x + Math.cos(player.angle) * 36,
-        player.y + Math.sin(player.angle) * 36,
-        'REVERSAL RED!',
-        '#ef4444'
-      );
-    } else if (offhandVisual === 'sukuna_hiten') {
-      audio.playFireSpear();
-      cinematics.addScreenShake(5);
-      particles.spawnComicText(
-        player.x + Math.cos(player.angle) * 36,
-        player.y + Math.sin(player.angle) * 36,
-        'FIRE THRUST!',
-        '#f97316'
-      );
-    } else if (offhandVisual === 'tome') {
-      audio.playBarrierHum();
-      particles.spawnComicText(
-        player.x + Math.cos(player.angle) * 32,
-        player.y + Math.sin(player.angle) * 32,
-        'RUNE PULSE!',
-        '#a855f7'
-      );
-    } else {
-      audio.playBonk();
-      particles.spawnComicText(
-        player.x + Math.cos(player.angle) * 32,
-        player.y + Math.sin(player.angle) * 32,
-        'BONK!',
-        '#ff0055'
-      );
+  // Right Click Slap / Special Off-hand (gated by triggerSlap cooldown & stun)
+  if (input.justPressedRight && !modalsOpen && !player.isBlocking && !player.isStunned) {
+    if (player.triggerSlap()) {
+      const offhandVisual = player.equipment?.offhand?.visual;
+      if (offhandVisual === 'reversal_red') {
+        audio.playRepulsionBurst();
+        cinematics.addScreenShake(6);
+        particles.spawnComicText(
+          player.x + Math.cos(player.angle) * 36,
+          player.y + Math.sin(player.angle) * 36,
+          'REVERSAL RED!',
+          '#ef4444'
+        );
+      } else if (offhandVisual === 'sukuna_hiten') {
+        audio.playFireSpear();
+        cinematics.addScreenShake(5);
+        particles.spawnComicText(
+          player.x + Math.cos(player.angle) * 36,
+          player.y + Math.sin(player.angle) * 36,
+          'FIRE THRUST!',
+          '#f97316'
+        );
+      } else if (offhandVisual === 'tome') {
+        audio.playBarrierHum();
+        particles.spawnComicText(
+          player.x + Math.cos(player.angle) * 32,
+          player.y + Math.sin(player.angle) * 32,
+          'RUNE PULSE!',
+          '#a855f7'
+        );
+      } else {
+        audio.playBonk();
+        particles.spawnComicText(
+          player.x + Math.cos(player.angle) * 32,
+          player.y + Math.sin(player.angle) * 32,
+          'BONK!',
+          '#ff0055'
+        );
+      }
+      handleAttacks();
+      broadcastMyState();
     }
-    handleAttacks();
-    broadcastMyState();
   }
 
   // 2. Update particles

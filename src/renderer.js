@@ -982,9 +982,31 @@ export class Renderer {
 
     ctx.restore();
 
+    // Overhead Dizzy Stars when Stunned
+    if (entity.isStunned) {
+      ctx.save();
+      ctx.translate(x, y - radius - 16);
+      const starTime = performance.now() * 0.007;
+      for (let s = 0; s < 3; s++) {
+        const starAngle = starTime + (s * Math.PI * 2) / 3;
+        const starX = Math.cos(starAngle) * 16;
+        const starY = Math.sin(starAngle) * 6;
+        ctx.fillStyle = '#fde047';
+        ctx.shadowColor = '#eab308';
+        ctx.shadowBlur = 10;
+        ctx.beginPath();
+        ctx.arc(starX, starY, 4, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 1.2;
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
     // Overhead Name & Mini HP Bar
     ctx.save();
-    ctx.translate(x, y - radius - 18);
+    ctx.translate(x, y - radius - (entity.isStunned ? 28 : 18));
     ctx.font = '600 12px "Outfit", sans-serif';
     ctx.textAlign = 'center';
     ctx.fillStyle = '#ffffff';
