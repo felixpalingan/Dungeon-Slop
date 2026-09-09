@@ -177,7 +177,13 @@ export class Renderer {
     }
 
     // --- VISUAL BOOTS / FEET (Underneath body) ---
-    const bootColor = boots?.visual === 'winged_boots' ? '#38bdf8' : '#78350f';
+    let bootColor = '#78350f';
+    if (boots?.visual === 'winged_boots') bootColor = '#38bdf8';
+    else if (boots?.visual === 'gojo_loafers') bootColor = '#020617';
+    else if (boots?.visual === 'sukuna_zori') bootColor = '#d97706';
+    else if (boots?.visual === 'toji_slippers') bootColor = '#1e293b';
+    else if (boots?.visual === 'guts_sollerets') bootColor = '#0f172a';
+
     ctx.fillStyle = bootColor;
     ctx.beginPath();
     ctx.ellipse(-10, -radius * 0.6, 6, 4, 0, 0, Math.PI * 2);
@@ -225,7 +231,36 @@ export class Renderer {
 
       // Off-hand item visual
       if (offhand) {
-        if (offhand.visual === 'tower_shield') {
+        if (offhand.visual === 'reversal_red') {
+          // Gojo's Reversal Red floating glowing sphere
+          const pulseRed = 8 + Math.sin(Date.now() * 0.008) * 2;
+          ctx.beginPath();
+          ctx.arc(0, 0, pulseRed, 0, Math.PI * 2);
+          ctx.fillStyle = '#ef4444';
+          ctx.shadowColor = '#ef4444';
+          ctx.shadowBlur = 14;
+          ctx.fill();
+          ctx.strokeStyle = '#fca5a5';
+          ctx.lineWidth = 2;
+          ctx.stroke();
+          ctx.shadowBlur = 0;
+        } else if (offhand.visual === 'sukuna_hiten') {
+          // Sukuna Hiten Fire Spear
+          ctx.strokeStyle = '#ef4444';
+          ctx.lineWidth = 3;
+          ctx.beginPath();
+          ctx.moveTo(-10, 0);
+          ctx.lineTo(16, 0);
+          ctx.stroke();
+
+          ctx.fillStyle = '#f59e0b';
+          ctx.beginPath();
+          ctx.moveTo(16, -6);
+          ctx.lineTo(26, 0);
+          ctx.lineTo(16, 6);
+          ctx.closePath();
+          ctx.fill();
+        } else if (offhand.visual === 'tower_shield') {
           // Iron Tower Shield (Tall rectangular steel shield with cross)
           ctx.fillStyle = '#334155';
           ctx.beginPath();
@@ -308,7 +343,108 @@ export class Renderer {
     ctx.stroke();
 
     // Procedural Weapon Visuals based on equipped item
-    if (weapon?.visual === 'greatsword_2h') {
+    if (weapon?.visual === 'dragon_slayer') {
+      // Guts' Colossal Dragon Slayer: 92px long massive slab of dark iron
+      ctx.fillStyle = '#1e293b';
+      ctx.strokeStyle = '#64748b';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.moveTo(0, -6);
+      ctx.lineTo(58, -6);
+      ctx.lineTo(66, 0); // sharp pointed iron apex
+      ctx.lineTo(58, 6);
+      ctx.lineTo(0, 6);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      // Deep central blood fuller groove
+      ctx.fillStyle = '#0f172a';
+      ctx.fillRect(4, -2, 50, 4);
+
+      // Chunky crossguard & hilt wrapping
+      ctx.fillStyle = '#475569';
+      ctx.fillRect(0, -12, 5, 24);
+      ctx.fillStyle = '#cbd5e1';
+      ctx.fillRect(-6, -2, 6, 4);
+    } else if (weapon?.visual === 'inverted_spear_chain') {
+      // Toji's Inverted Spear of Heaven & Coiled Chain
+      // 1. Thousand-Mile Chain links
+      ctx.strokeStyle = '#94a3b8';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([3, 3]);
+      ctx.beginPath();
+      ctx.moveTo(-14, 0);
+      ctx.lineTo(10, 0);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // 2. Inverted Spear twin-curved jitte blade
+      ctx.fillStyle = '#e2e8f0';
+      ctx.strokeStyle = '#38bdf8';
+      ctx.lineWidth = 1.5;
+
+      ctx.beginPath();
+      ctx.moveTo(10, -2);
+      ctx.lineTo(38, -2);
+      ctx.lineTo(44, 0);
+      ctx.lineTo(38, 2);
+      ctx.lineTo(10, 2);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      // Inverted jitte hook prong
+      ctx.beginPath();
+      ctx.moveTo(22, -2);
+      ctx.lineTo(24, -10);
+      ctx.lineTo(26, -10);
+      ctx.lineTo(24, -2);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+    } else if (weapon?.visual === 'lapse_blue') {
+      // Gojo's Lapse Blue floating gravitational sphere
+      const pulseBlue = 9 + Math.sin(Date.now() * 0.009) * 2;
+      ctx.beginPath();
+      ctx.arc(14, 0, pulseBlue, 0, Math.PI * 2);
+      ctx.fillStyle = '#0284c7';
+      ctx.shadowColor = '#00f0ff';
+      ctx.shadowBlur = 16;
+      ctx.fill();
+      ctx.strokeStyle = '#bae6fd';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+    } else if (weapon?.visual === 'sukuna_kamutoke') {
+      // Sukuna's Vajra Lightning Dagger
+      ctx.fillStyle = '#fbbf24';
+      ctx.strokeStyle = '#d97706';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(0, -4);
+      ctx.lineTo(22, 0);
+      ctx.lineTo(0, 4);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      // Lightning prongs
+      ctx.strokeStyle = '#e11d48';
+      ctx.strokeRect(10, -8, 4, 16);
+    } else if (weapon?.visual === 'sukuna_cleaver') {
+      // Sukuna's Malevolent Cleaver
+      ctx.fillStyle = '#334155';
+      ctx.strokeStyle = '#e11d48';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(0, -10);
+      ctx.lineTo(46, -14);
+      ctx.lineTo(50, 6);
+      ctx.lineTo(0, 4);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+    } else if (weapon?.visual === 'greatsword_2h') {
       // Colossal Titan Greatsword
       ctx.fillStyle = '#94a3b8';
       ctx.strokeStyle = '#475569';
@@ -393,7 +529,59 @@ export class Renderer {
 
     // --- CHESTPIECE VISUAL ---
     if (chest) {
-      if (chest.visual === 'celestial_chest') {
+      if (chest.visual === 'gojo_tunic') {
+        // High-collar black jujutsu sorcerer tunic with polished buttons
+        ctx.fillStyle = '#090d16';
+        ctx.strokeStyle = '#38bdf8';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(0, 0, radius * 0.72, -Math.PI / 2, Math.PI / 2);
+        ctx.fill();
+        ctx.stroke();
+
+        // High neck collar flap
+        ctx.fillStyle = '#0f172a';
+        ctx.fillRect(radius * 0.1, -8, 8, 16);
+      } else if (chest.visual === 'sukuna_robe') {
+        // Flowing white kimono with sharp black cursed tattoos
+        ctx.fillStyle = '#f8fafc';
+        ctx.strokeStyle = '#e11d48';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(-2, 0, radius * 0.75, -Math.PI / 2, Math.PI / 2);
+        ctx.fill();
+        ctx.stroke();
+
+        // Cursed tattoo markings
+        ctx.strokeStyle = '#090d16';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(-4, -6);
+        ctx.lineTo(8, -6);
+        ctx.moveTo(-4, 6);
+        ctx.lineTo(8, 6);
+        ctx.stroke();
+      } else if (chest.visual === 'toji_shirt') {
+        // Tight black compression shirt with muscle shading
+        ctx.fillStyle = '#0b0f19';
+        ctx.beginPath();
+        ctx.arc(-2, 0, radius * 0.7, -Math.PI / 2, Math.PI / 2);
+        ctx.fill();
+      } else if (chest.visual === 'guts_berserker_plate') {
+        // Jagged, angular black iron Berserker cuirass with red blood trim
+        ctx.fillStyle = '#0f172a';
+        ctx.strokeStyle = '#ef4444';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(-2, 0, radius * 0.78, -Math.PI / 2, Math.PI / 2);
+        ctx.fill();
+        ctx.stroke();
+
+        // Spiked pauldrons
+        ctx.fillStyle = '#1e293b';
+        ctx.fillRect(-8, -radius * 0.85, 8, 6);
+        ctx.fillRect(-8, radius * 0.65, 8, 6);
+      } else if (chest.visual === 'celestial_chest') {
         // Radiant golden wings / mantle
         ctx.fillStyle = 'rgba(251, 191, 36, 0.85)';
         ctx.strokeStyle = '#d97706';
@@ -426,13 +614,82 @@ export class Renderer {
     }
 
     // --- HELMET / HEADPIECE VISUAL ---
-    if (helmet?.visual === 'horned_helm') {
+    if (helmet?.visual === 'guts_beast_helm') {
+      // Guts' Berserker Beast Helmet: Jagged demon hound snout with glowing red slits
+      ctx.fillStyle = '#0f172a';
+      ctx.strokeStyle = '#ef4444';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(radius * 0.1, -12);
+      ctx.lineTo(radius * 0.9, -6);
+      ctx.lineTo(radius * 1.1, 0); // sharp pointed beast snout
+      ctx.lineTo(radius * 0.9, 6);
+      ctx.lineTo(radius * 0.1, 12);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      // Glowing crimson beast eye slits
+      ctx.fillStyle = '#ef4444';
+      ctx.shadowColor = '#ef4444';
+      ctx.shadowBlur = 10;
+      ctx.fillRect(radius * 0.5, -6, 6, 2.5);
+      ctx.fillRect(radius * 0.5, 3.5, 6, 2.5);
+      ctx.shadowBlur = 0;
+    } else if (helmet?.visual === 'sukuna_crown') {
+      // Sukuna's Four Eyes & forehead tattoos
+      ctx.fillStyle = '#0f172a';
+      ctx.beginPath();
+      ctx.roundRect(radius * 0.2, -8, radius * 0.55, 16, [4]);
+      ctx.fill();
+
+      // 4 Glowing crimson demon eyes!
+      ctx.fillStyle = '#ef4444';
+      ctx.shadowColor = '#ef4444';
+      ctx.shadowBlur = 8;
+      ctx.fillRect(radius * 0.35, -6, 4, 3);
+      ctx.fillRect(radius * 0.35, 3, 4, 3);
+      ctx.fillRect(radius * 0.6, -4, 3, 2.5);
+      ctx.fillRect(radius * 0.6, 1.5, 3, 2.5);
+      ctx.shadowBlur = 0;
+    } else if (helmet?.visual === 'toji_worm') {
+      // Toji's Cursed Worm wrapped around neck and shoulder
+      ctx.fillStyle = '#64748b';
+      ctx.strokeStyle = '#334155';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(-radius * 0.4, -radius * 0.4, 8, 0, Math.PI * 2);
+      ctx.arc(radius * 0.1, -radius * 0.5, 7, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+
+      // Normal head visor underneath
+      ctx.fillStyle = '#0f172a';
+      ctx.beginPath();
+      ctx.roundRect(radius * 0.2, -7, radius * 0.55, 14, [4]);
+      ctx.fill();
+    } else if (helmet?.visual === 'gojo_blindfold') {
+      // Gojo's jet black blindfold with glowing cyan eye slits
+      ctx.fillStyle = '#020617';
+      ctx.beginPath();
+      ctx.roundRect(radius * 0.15, -8, radius * 0.6, 16, [3]);
+      ctx.fill();
+      ctx.strokeStyle = '#38bdf8';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      // Faint glowing Six Eyes slit
+      ctx.fillStyle = '#38bdf8';
+      ctx.shadowColor = '#00f0ff';
+      ctx.shadowBlur = 10;
+      ctx.fillRect(radius * 0.45, -3, 3, 6);
+      ctx.shadowBlur = 0;
+    } else if (helmet?.visual === 'horned_helm') {
       // Fierce barbarian horns sticking out left and right
       ctx.fillStyle = '#f8fafc';
       ctx.strokeStyle = '#475569';
       ctx.lineWidth = 1.5;
 
-      // Top horn
       ctx.beginPath();
       ctx.moveTo(2, -radius * 0.6);
       ctx.quadraticCurveTo(14, -radius * 1.3, 2, -radius * 1.5);
@@ -441,7 +698,6 @@ export class Renderer {
       ctx.fill();
       ctx.stroke();
 
-      // Bottom horn
       ctx.beginPath();
       ctx.moveTo(2, radius * 0.6);
       ctx.quadraticCurveTo(14, radius * 1.3, 2, radius * 1.5);
@@ -449,21 +705,27 @@ export class Renderer {
       ctx.closePath();
       ctx.fill();
       ctx.stroke();
+
+      // Default Visor underneath
+      ctx.fillStyle = '#0f172a';
+      ctx.beginPath();
+      ctx.roundRect(radius * 0.2, -7, radius * 0.55, 14, [4]);
+      ctx.fill();
+    } else {
+      // Default / Cowl Visor
+      const visorBaseColor = helmet?.visual === 'cowl_hood' ? '#1e1b4b' : '#0f172a';
+      ctx.fillStyle = visorBaseColor;
+      ctx.beginPath();
+      ctx.roundRect(radius * 0.2, -7, radius * 0.55, 14, [4]);
+      ctx.fill();
+
+      // Visor glowing slit
+      ctx.fillStyle = isRolling ? '#ffffff' : (isAttacking ? '#ff3366' : '#00f0ff');
+      ctx.shadowColor = ctx.fillStyle;
+      ctx.shadowBlur = 8;
+      ctx.fillRect(radius * 0.45, -4, 4, 8);
+      ctx.shadowBlur = 0;
     }
-
-    // Helmet Visor / Hood Base
-    const visorBaseColor = helmet?.visual === 'cowl_hood' ? '#1e1b4b' : '#0f172a';
-    ctx.fillStyle = visorBaseColor;
-    ctx.beginPath();
-    ctx.roundRect(radius * 0.2, -7, radius * 0.55, 14, [4]);
-    ctx.fill();
-
-    // Visor glowing slit
-    ctx.fillStyle = isRolling ? '#ffffff' : (isAttacking ? '#ff3366' : '#00f0ff');
-    ctx.shadowColor = ctx.fillStyle;
-    ctx.shadowBlur = 8;
-    ctx.fillRect(radius * 0.45, -4, 4, 8);
-    ctx.shadowBlur = 0;
 
     ctx.restore();
 
