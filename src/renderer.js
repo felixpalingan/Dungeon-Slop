@@ -208,6 +208,10 @@ export class Renderer {
       // Both hands grip the heavy 2-handed weapon!
       leftHandX = 16;
       leftHandY = 4;
+    } else if (entity.isBlocking) {
+      // Raise shield forward in defensive stance!
+      leftHandX = 22;
+      leftHandY = -6;
     } else if (isSlapping && slapProgress > 0 && slapProgress < 1) {
       const thrust = Math.sin(slapProgress * Math.PI) * 26;
       leftHandX += thrust;

@@ -51,6 +51,9 @@ export class Player {
     this.slapTimer = 0;
     this.slapProgress = 0; // 0 to 1
 
+    // Shield Blocking state
+    this.isBlocking = false;
+
     // 6 Equipment Slots
     this.equipment = {
       helmet: null,
@@ -221,12 +224,14 @@ export class Player {
         this.vx = this.rollDirX * this.baseSpeed * this.rollSpeedMultiplier;
         this.vy = this.rollDirY * this.baseSpeed * this.rollSpeedMultiplier;
       } else {
-        const targetVx = dx * this.baseSpeed;
-        const targetVy = dy * this.baseSpeed;
-        const accel = 18;
+      // Movement speed penalty while raising shield
+      const speedMult = this.isBlocking ? 0.45 : 1.0;
+      const targetVx = dx * this.baseSpeed * speedMult;
+      const targetVy = dy * this.baseSpeed * speedMult;
+      const accel = 18;
 
-        this.vx += (targetVx - this.vx) * Math.min(1, accel * dt);
-        this.vy += (targetVy - this.vy) * Math.min(1, accel * dt);
+      this.vx += (targetVx - this.vx) * Math.min(1, accel * dt);
+      this.vy += (targetVy - this.vy) * Math.min(1, accel * dt);
       }
 
       // Stamina Regeneration

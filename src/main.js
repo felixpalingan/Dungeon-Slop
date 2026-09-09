@@ -8,6 +8,7 @@ import { Dummy } from './dummy.js';
 import { ReadyCircle } from './readyCircle.js';
 import { CustomizationStation } from './customizationStation.js';
 import { ITEM_CATALOG } from './items.js';
+import { CombatSystem } from './combat.js';
 
 const canvas = document.getElementById('game-canvas');
 const renderer = new Renderer(canvas);
@@ -25,6 +26,7 @@ player.equipItem(ITEM_CATALOG['travel_boots']);
 const audio = new AudioManager();
 const particles = new ParticleManager();
 const network = new NetworkManager();
+const combat = new CombatSystem(audio, particles);
 
 // Lobby interactive entities
 const dummy = new Dummy(0, -180);
@@ -77,28 +79,24 @@ function closeWardrobe() {
 
 btnCloseWardrobe.addEventListener('click', closeWardrobe);
 
-// Close on Escape key
 window.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && !wardrobeModal.classList.contains('hidden')) {
     closeWardrobe();
   }
 });
 
-// Name input in wardrobe
 inputPlayerName.addEventListener('input', (e) => {
   player.name = e.target.value.trim() || 'SlopCrawler';
   hudPlayerName.textContent = player.name;
   broadcastMyState();
 });
 
-// Color picker buttons in wardrobe
 document.querySelectorAll('.color-btn').forEach((btn) => {
   btn.addEventListener('click', () => {
     document.querySelectorAll('.color-btn').forEach((b) => b.classList.remove('selected'));
     btn.classList.add('selected');
     player.color = btn.getAttribute('data-color');
 
-    // Sync preview in mirror modal and HUD
     wardrobePreviewCircle.style.background = player.color;
     wardrobePreviewCircle.style.boxShadow = `0 0 16px ${player.color}`;
     hudAvatar.style.background = player.color;
@@ -207,6 +205,7 @@ function broadcastMyState() {
     attackProgress: player.attackProgress,
     isSlapping: player.isSlapping,
     slapProgress: player.slapProgress,
+    isBlocking: player.isBlocking,
     hp: player.hp,
     maxHp: player.maxHp,
     equipment: player.equipment
@@ -244,7 +243,8 @@ network.onMessageReceived = (fromPeerId, msg) => {
   } else if (msg.type === 'DUMMY_HIT') {
     dummy.takeHit(msg.damage, msg.angle);
     audio.playBonk();
-    particles.spawnComicText(dummy.x, dummy.y - 24, `POW! -${msg.damage}`, '#ffea00');
+    const hitLabel = msg.isCrit ? `CRIT! -${msg.damage}` : `-${msg.damage}`;
+    particles.spawnComicText(dummy.x, dummy.y - 24, hitLabel, msg.isCrit ? '#ff0055' : '#ffea00');
   }
 };
 
@@ -254,51 +254,36 @@ setInterval(() => {
   }
 }, 50);
 
-// --- COMBAT & SLAP HIT DETECTION ---
-function checkAttackHits(isSlap = false) {
-  const reach = isSlap ? 52 : 62;
-  const attackX = player.x + Math.cos(player.angle) * reach;
-  const attackY = player.y + Math.sin(player.angle) * reach;
+// --- COMBAT WEAPON & BLOCKING LOGIC ---
+function handleAttacks() {
+  const targets = [dummy, ...network.remotePlayers.values()];
+  const hits = combat.performWeaponAttack(player, targets);
 
-  // 1. Check Hit on Training Dummy
-  const distToDummy = Math.hypot(attackX - dummy.x, attackY - dummy.y);
-  if (distToDummy < dummy.radius + 20) {
-    const damage = isSlap ? 5 : 25;
-    dummy.takeHit(damage, player.angle);
-
-    if (isSlap) {
-      audio.playBonk();
-      particles.spawnComicText(dummy.x, dummy.y - 24, `BONK! -${damage}`, '#ff0055');
-    } else {
+  for (const hit of hits) {
+    if (hit.target === dummy) {
+      dummy.takeHit(hit.damage, hit.angle);
       audio.playSwing();
-      particles.spawnComicText(dummy.x, dummy.y - 24, `POW! -${damage}`, '#ffea00');
-    }
+      const popupText = hit.isCrit ? `CRIT! -${hit.damage}` : `HIT! -${hit.damage}`;
+      particles.spawnComicText(dummy.x, dummy.y - 24, popupText, hit.isCrit ? '#ff0055' : '#fbbf24');
 
-    const hitMsg = { type: 'DUMMY_HIT', damage, angle: player.angle };
-    if (network.isHost) network.broadcast(hitMsg);
-    else network.sendToHost(hitMsg);
-  }
+      const hitMsg = { type: 'DUMMY_HIT', damage: hit.damage, angle: hit.angle, isCrit: hit.isCrit };
+      if (network.isHost) network.broadcast(hitMsg);
+      else network.sendToHost(hitMsg);
+    } else {
+      // Hit a friend -> friendly knockback
+      for (const [peerId, remote] of network.remotePlayers.entries()) {
+        if (remote === hit.target) {
+          const kx = Math.cos(hit.angle) * hit.knockback;
+          const ky = Math.sin(hit.angle) * hit.knockback;
 
-  // 2. Check Friendly Slap Knockback on Remote Players
-  for (const [peerId, remote] of network.remotePlayers.entries()) {
-    const distToFriend = Math.hypot(attackX - remote.x, attackY - remote.y);
-    if (distToFriend < 34) {
-      const knockbackPower = isSlap ? 550 : 380;
-      const kx = Math.cos(player.angle) * knockbackPower;
-      const ky = Math.sin(player.angle) * knockbackPower;
+          const slapMsg = { type: 'SLAP_KNOCKBACK', targetPeerId: peerId, kx, ky };
+          if (network.isHost) network.broadcast(slapMsg);
+          else network.sendToHost(slapMsg);
 
-      const slapMsg = {
-        type: 'SLAP_KNOCKBACK',
-        targetPeerId: peerId,
-        kx,
-        ky
-      };
-
-      if (network.isHost) network.broadcast(slapMsg);
-      else network.sendToHost(slapMsg);
-
-      audio.playBonk();
-      particles.spawnComicText(remote.x, remote.y - 20, isSlap ? 'SLAP!' : 'WHACK!', '#ff0055');
+          audio.playBonk();
+          particles.spawnComicText(remote.x, remote.y - 20, hit.isBlocked ? 'BLOCKED!' : 'WHACK!', '#ff3366');
+        }
+      }
     }
   }
 }
@@ -310,6 +295,21 @@ function gameLoop(now) {
   lastTime = now;
 
   const wasRolling = player.isRolling;
+  const modalsOpen = !wardrobeModal.classList.contains('hidden') || !lobbyModal.classList.contains('hidden');
+
+  // Handle Shield Blocking (Holding Right-Click when an offhand shield is equipped)
+  if (!modalsOpen && input.mouse.rightDown && player.equipment?.offhand?.visual?.includes('shield')) {
+    if (!player.isBlocking) {
+      player.isBlocking = true;
+      audio.playSwing();
+      broadcastMyState();
+    }
+  } else {
+    if (player.isBlocking) {
+      player.isBlocking = false;
+      broadcastMyState();
+    }
+  }
 
   // 1. Update entities
   player.update(dt, input, dungeonBounds);
@@ -321,15 +321,17 @@ function gameLoop(now) {
   // [E] Key interaction: check if player pressed [E] near the Wardrobe Mirror
   if (input.justPressedE) {
     if (wardrobeStation.isPlayerNearby(player)) {
-      if (wardrobeModal.classList.contains('hidden')) {
-        openWardrobe();
-      } else {
-        closeWardrobe();
-      }
+      if (wardrobeModal.classList.contains('hidden')) openWardrobe();
+      else closeWardrobe();
     }
   }
 
-  // Left Shift Roll (only when modal is not actively typing)
+  // [Q] Key: Chest piece active ability
+  if (input.keys.q && !modalsOpen) {
+    combat.triggerChestAbility(player);
+  }
+
+  // Left Shift Roll
   if (!wasRolling && player.isRolling) {
     audio.playRoll();
     particles.spawnDashBurst(player.x, player.y, Math.atan2(player.rollDirY, player.rollDirX), player.color);
@@ -337,22 +339,16 @@ function gameLoop(now) {
     broadcastMyState();
   }
 
-  // Left Click Attack
-  if (input.justPressedLeft && wardrobeModal.classList.contains('hidden') && lobbyModal.classList.contains('hidden')) {
+  // Left Click Weapon Attack
+  if (input.justPressedLeft && !modalsOpen) {
     player.triggerAttack();
     audio.playSwing();
-    particles.spawnComicText(
-      player.x + Math.cos(player.angle) * 36,
-      player.y + Math.sin(player.angle) * 36,
-      'SWOOSH!',
-      '#ffffff'
-    );
-    checkAttackHits(false);
+    handleAttacks();
     broadcastMyState();
   }
 
-  // Right Click Slap
-  if (input.justPressedRight && wardrobeModal.classList.contains('hidden') && lobbyModal.classList.contains('hidden')) {
+  // Right Click Slap (when not holding a shield)
+  if (input.justPressedRight && !modalsOpen && !player.isBlocking) {
     player.triggerSlap();
     audio.playBonk();
     particles.spawnComicText(
@@ -361,7 +357,7 @@ function gameLoop(now) {
       'BONK!',
       '#ff0055'
     );
-    checkAttackHits(true);
+    handleAttacks();
     broadcastMyState();
   }
 
@@ -384,10 +380,10 @@ function gameLoop(now) {
   renderer.drawTorch(-560, 560, now * 0.001);
   renderer.drawTorch(560, 560, now * 0.001);
 
-  // Interactive in-world Dressing Mirror / Wardrobe Station
+  // Wardrobe Station
   wardrobeStation.draw(renderer.ctx, player);
 
-  // Draw Training Dummy
+  // Training Dummy
   dummy.draw(renderer.ctx);
 
   // Dash after-images & particles
@@ -411,4 +407,4 @@ function gameLoop(now) {
 }
 
 requestAnimationFrame(gameLoop);
-console.log('In-world Wardrobe Mirror integrated successfully');
+console.log('Step 3.2: Combat Engine with Cleave Arcs, Shield Block, and Q Abilities integrated successfully');
