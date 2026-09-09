@@ -117,12 +117,63 @@
         </div>
       </div>
 
+      <!-- Inventory & Equipment Overlay Modal (Hotkey: I or Tab) -->
+      <div id="inventory-modal" class="modal-backdrop interactive hidden">
+        <div class="modal-card inventory-card">
+          <div class="inventory-header">
+            <h2 class="modal-title">EQUIPMENT & BACKPACK</h2>
+            <span class="modal-subtitle">Click items to equip, unequip, or drop for friends</span>
+          </div>
+
+          <!-- 6 Equipment Slots -->
+          <div class="equipment-slots-grid">
+            <div class="equip-slot-box" data-slot="helmet">
+              <span class="slot-label">HELMET</span>
+              <div class="slot-content" id="slot-helmet">Empty</div>
+            </div>
+            <div class="equip-slot-box" data-slot="chest">
+              <span class="slot-label">CHEST</span>
+              <div class="slot-content" id="slot-chest">Empty</div>
+            </div>
+            <div class="equip-slot-box" data-slot="pants">
+              <span class="slot-label">PANTS</span>
+              <div class="slot-content" id="slot-pants">Empty</div>
+            </div>
+            <div class="equip-slot-box" data-slot="boots">
+              <span class="slot-label">BOOTS</span>
+              <div class="slot-content" id="slot-boots">Empty</div>
+            </div>
+            <div class="equip-slot-box weapon-slot" data-slot="weapon">
+              <span class="slot-label">WEAPON (1H/2H)</span>
+              <div class="slot-content" id="slot-weapon">Empty</div>
+            </div>
+            <div class="equip-slot-box offhand-slot" data-slot="offhand">
+              <span class="slot-label">OFF-HAND</span>
+              <div class="slot-content" id="slot-offhand">Empty</div>
+            </div>
+          </div>
+
+          <!-- Backpack Grid -->
+          <div class="backpack-section">
+            <span class="section-title">Backpack (<span id="inv-count">0</span>/10)</span>
+            <div class="backpack-grid" id="backpack-grid"></div>
+          </div>
+
+          <div class="inventory-footer">
+            <span class="hint-text">💡 Press <kbd>DROP</kbd> on any item to drop it on the ground for your friends!</span>
+            <button id="btn-close-inventory" class="action-btn primary-btn">CLOSE [TAB / I]</button>
+          </div>
+        </div>
+      </div>
+
       <div class="hud-bottom-center">
         <div class="controls-hint">
           <span><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> Move</span>
-          <span><kbd>SHIFT</kbd> Roll / Dash</span>
+          <span><kbd>SHIFT</kbd> Roll</span>
           <span><kbd>L-CLICK</kbd> Attack</span>
-          <span><kbd>R-CLICK</kbd> Off-hand</span>
+          <span><kbd>R-CLICK</kbd> Block</span>
+          <span><kbd>Q</kbd> Ability</span>
+          <span><kbd>I</kbd> / <kbd>TAB</kbd> Inventory</span>
         </div>
       </div>
     </div>

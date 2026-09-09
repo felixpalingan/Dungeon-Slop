@@ -237,6 +237,118 @@ html, body {
   gap: 16px;
 }
 
+.inventory-card {
+  max-width: 620px;
+  width: 95%;
+  border-color: rgba(251, 191, 36, 0.4);
+  box-shadow: 0 0 40px rgba(251, 191, 36, 0.15), 0 20px 50px rgba(0, 0, 0, 0.8);
+}
+
+.inventory-header {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.equipment-slots-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.equip-slot-box {
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid var(--border-glass);
+  border-radius: 8px;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.slot-label {
+  font-size: 0.68rem;
+  font-weight: 800;
+  color: var(--text-dim);
+  letter-spacing: 0.5px;
+}
+
+.slot-content {
+  font-size: 0.84rem;
+  font-weight: 700;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.item-action-btn {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #fff;
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 0.68rem;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.item-action-btn:hover {
+  background: rgba(255, 50, 50, 0.4);
+}
+
+.backpack-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.section-title {
+  font-size: 0.8rem;
+  font-weight: 800;
+  color: var(--text-dim);
+  text-transform: uppercase;
+}
+
+.backpack-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+.backpack-item-card {
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid var(--border-glass);
+  border-radius: 8px;
+  padding: 8px 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.82rem;
+}
+
+.backpack-item-card:hover {
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.backpack-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.inventory-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 4px;
+}
+
+.hint-text {
+  font-size: 0.72rem;
+  color: var(--text-dim);
+}
+
 .wardrobe-card {
   border-color: rgba(0, 240, 255, 0.4);
   box-shadow: 0 0 40px rgba(0, 240, 255, 0.2), 0 20px 50px rgba(0, 0, 0, 0.8);
