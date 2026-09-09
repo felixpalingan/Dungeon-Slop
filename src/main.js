@@ -4,14 +4,16 @@ import { Player } from './player.js';
 import { AudioManager } from './audio.js';
 import { ParticleManager } from './particles.js';
 import { NetworkManager } from './network.js';
+import { Dummy } from './dummy.js';
 
 const canvas = document.getElementById('game-canvas');
 const renderer = new Renderer(canvas);
 const input = new InputManager();
-const player = new Player(0, 0);
+const player = new Player(0, 50);
 const audio = new AudioManager();
 const particles = new ParticleManager();
 const network = new NetworkManager();
+const dummy = new Dummy(0, -140);
 
 const dungeonBounds = { minX: -600, minY: -600, maxX: 600, maxY: 600 };
 
@@ -41,18 +43,15 @@ const hudNetworkStatus = document.getElementById('hud-network-status');
 const hudAvatar = document.getElementById('hud-avatar');
 const hudPlayerName = document.getElementById('hud-player-name');
 
-// Modal toggle
 btnOpenLobby.addEventListener('click', () => lobbyModal.classList.remove('hidden'));
 btnCloseLobby.addEventListener('click', () => lobbyModal.classList.add('hidden'));
 
-// Player name change
 inputPlayerName.addEventListener('input', (e) => {
   player.name = e.target.value.trim() || 'SlopCrawler';
   hudPlayerName.textContent = player.name;
   broadcastMyState();
 });
 
-// Color picker buttons
 document.querySelectorAll('.color-btn').forEach((btn) => {
   btn.addEventListener('click', () => {
     document.querySelectorAll('.color-btn').forEach((b) => b.classList.remove('selected'));
@@ -64,16 +63,12 @@ document.querySelectorAll('.color-btn').forEach((btn) => {
   });
 });
 
-// Update party roster UI
 function updatePartyRoster() {
   partyRoster.innerHTML = '';
-
-  // Local player
   const myLi = document.createElement('li');
   myLi.innerHTML = `<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${player.color}"></span> ${player.name} (You) ${network.isHost ? '👑' : ''}`;
   partyRoster.appendChild(myLi);
 
-  // Remote peers
   for (const [_, remote] of network.remotePlayers.entries()) {
     const li = document.createElement('li');
     li.innerHTML = `<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${remote.color || '#fff'}"></span> ${remote.name || 'Friend'}`;
@@ -83,11 +78,9 @@ function updatePartyRoster() {
   partyCount.textContent = network.remotePlayers.size + 1;
 }
 
-// Host Room
 btnCreateRoom.addEventListener('click', async () => {
   btnCreateRoom.disabled = true;
   btnCreateRoom.textContent = 'CREATING...';
-
   try {
     const code = await network.createRoom();
     displayRoomCode.textContent = code;
@@ -102,22 +95,18 @@ btnCreateRoom.addEventListener('click', async () => {
   }
 });
 
-// Join Room
 btnJoinRoom.addEventListener('click', async () => {
   const code = inputRoomCode.value.trim();
   if (!code) return alert('Please enter a room code (e.g. SLOP-XXXX)');
 
   btnJoinRoom.disabled = true;
   btnJoinRoom.textContent = 'JOINING...';
-
   try {
     await network.joinRoom(code);
     displayRoomCode.textContent = code;
     activeRoomBox.classList.remove('hidden');
     hudNetworkStatus.textContent = `CO-OP [${code}]`;
     updatePartyRoster();
-
-    // Send my initial state to host immediately
     broadcastMyState();
   } catch (err) {
     alert('Could not join room. Make sure the host has created it!');
@@ -127,7 +116,6 @@ btnJoinRoom.addEventListener('click', async () => {
   }
 });
 
-// Copy invite link
 btnCopyLink.addEventListener('click', () => {
   const url = `${window.location.origin}${window.location.pathname}?room=${network.roomCode}`;
   navigator.clipboard.writeText(url);
@@ -135,7 +123,6 @@ btnCopyLink.addEventListener('click', () => {
   setTimeout(() => (btnCopyLink.textContent = 'COPY INVITE LINK'), 2000);
 });
 
-// Check URL params for ?room=SLOP-XXXX auto-fill
 const urlParams = new URLSearchParams(window.location.search);
 const roomParam = urlParams.get('room');
 if (roomParam) {
@@ -143,7 +130,6 @@ if (roomParam) {
   lobbyModal.classList.remove('hidden');
 }
 
-// Broadcast local state across WebRTC
 function broadcastMyState() {
   const payload = {
     type: 'PLAYER_STATE',
@@ -168,14 +154,12 @@ function broadcastMyState() {
   }
 }
 
-// Network callbacks
-network.onPlayerJoined = (peerId) => {
-  console.log('Player joined room:', peerId);
+network.onPlayerJoined = () => {
   updatePartyRoster();
   broadcastMyState();
 };
 
-network.onPlayerLeft = (peerId) => {
+network.onPlayerLeft = () => {
   updatePartyRoster();
 };
 
@@ -186,18 +170,76 @@ network.onMessageReceived = (fromPeerId, msg) => {
       lastSeen: performance.now()
     });
     updatePartyRoster();
-  } else if (msg.type === 'PLAYER_LEFT') {
-    network.remotePlayers.delete(msg.peerId);
-    updatePartyRoster();
+  } else if (msg.type === 'SLAP_KNOCKBACK') {
+    // If knockback is directed at local player
+    if (msg.targetPeerId === network.myPeerId) {
+      player.applyKnockback(msg.kx, msg.ky);
+      audio.playBonk();
+      particles.spawnComicText(player.x, player.y - 20, 'BONK!', '#ff0055');
+    }
+  } else if (msg.type === 'DUMMY_HIT') {
+    dummy.takeHit(msg.damage, msg.angle);
+    audio.playBonk();
+    particles.spawnComicText(dummy.x, dummy.y - 24, `POW! -${msg.damage}`, '#ffea00');
   }
 };
 
-// Send state snapshot 20 times per second
 setInterval(() => {
   if (network.connections.size > 0) {
     broadcastMyState();
   }
 }, 50);
+
+// --- COMBAT & SLAP HIT DETECTION ---
+function checkAttackHits(isSlap = false) {
+  const reach = isSlap ? 52 : 62;
+  const attackX = player.x + Math.cos(player.angle) * reach;
+  const attackY = player.y + Math.sin(player.angle) * reach;
+
+  // 1. Check Hit on Training Dummy
+  const distToDummy = Math.hypot(attackX - dummy.x, attackY - dummy.y);
+  if (distToDummy < dummy.radius + 20) {
+    const damage = isSlap ? 5 : 25;
+    dummy.takeHit(damage, player.angle);
+
+    if (isSlap) {
+      audio.playBonk();
+      particles.spawnComicText(dummy.x, dummy.y - 24, `BONK! -${damage}`, '#ff0055');
+    } else {
+      audio.playSwing();
+      particles.spawnComicText(dummy.x, dummy.y - 24, `POW! -${damage}`, '#ffea00');
+    }
+
+    // Sync dummy hit to peers
+    const hitMsg = { type: 'DUMMY_HIT', damage, angle: player.angle };
+    if (network.isHost) network.broadcast(hitMsg);
+    else network.sendToHost(hitMsg);
+  }
+
+  // 2. Check Friendly Slap Knockback on Remote Players
+  for (const [peerId, remote] of network.remotePlayers.entries()) {
+    const distToFriend = Math.hypot(attackX - remote.x, attackY - remote.y);
+    if (distToFriend < 34) {
+      const knockbackPower = isSlap ? 550 : 380;
+      const kx = Math.cos(player.angle) * knockbackPower;
+      const ky = Math.sin(player.angle) * knockbackPower;
+
+      // Broadcast knockback to friend
+      const slapMsg = {
+        type: 'SLAP_KNOCKBACK',
+        targetPeerId: peerId,
+        kx,
+        ky
+      };
+
+      if (network.isHost) network.broadcast(slapMsg);
+      else network.sendToHost(slapMsg);
+
+      audio.playBonk();
+      particles.spawnComicText(remote.x, remote.y - 20, isSlap ? 'SLAP!' : 'WHACK!', '#ff0055');
+    }
+  }
+}
 
 // --- MAIN GAME LOOP ---
 let lastTime = performance.now();
@@ -207,8 +249,9 @@ function gameLoop(now) {
 
   const wasRolling = player.isRolling;
 
-  // 1. Update local player
+  // 1. Update entities
   player.update(dt, input, dungeonBounds);
+  dummy.update(dt);
   player.syncHUD();
 
   // Left Shift Roll
@@ -229,6 +272,7 @@ function gameLoop(now) {
       'SWOOSH!',
       '#ffffff'
     );
+    checkAttackHits(false);
     broadcastMyState();
   }
 
@@ -242,6 +286,7 @@ function gameLoop(now) {
       'BONK!',
       '#ff0055'
     );
+    checkAttackHits(true);
     broadcastMyState();
   }
 
@@ -255,17 +300,20 @@ function gameLoop(now) {
   // Background stone floor
   renderer.drawDungeonFloor(dungeonBounds);
 
-  // Decorative corner torches
+  // Corner torches
   renderer.drawTorch(-560, -560, now * 0.001);
   renderer.drawTorch(560, -560, now * 0.001);
   renderer.drawTorch(-560, 560, now * 0.001);
   renderer.drawTorch(560, 560, now * 0.001);
 
+  // Draw Training Dummy with wobble physics & DPS stats
+  dummy.draw(renderer.ctx);
+
   // Dash after-images & particles
   renderer.drawAfterImages(player.afterImages);
   particles.draw(renderer.ctx);
 
-  // Draw remote players connected via WebRTC
+  // Draw remote peers
   for (const [_, remote] of network.remotePlayers.entries()) {
     renderer.drawCharacter(remote);
   }
@@ -282,4 +330,4 @@ function gameLoop(now) {
 }
 
 requestAnimationFrame(gameLoop);
-console.log('Step 2.1: PeerJS WebRTC Lobby & Room Code Networking integrated successfully');
+console.log('Step 2.2: Interactive Training Dummy & Slap Physics integrated successfully');

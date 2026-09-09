@@ -35,6 +35,10 @@ export class Player {
     this.rollDirY = 0;
     this.afterImages = [];
 
+    // Knockback physics (for friendly slaps & enemy hits)
+    this.knockbackVx = 0;
+    this.knockbackVy = 0;
+
     // Weapon Attack Animation (Left Click)
     this.isAttacking = false;
     this.attackDuration = 0.22; // snappy, satisfying swing
@@ -68,6 +72,11 @@ export class Player {
     this.isSlapping = true;
     this.slapTimer = this.slapDuration;
     this.slapProgress = 0;
+  }
+
+  applyKnockback(kx, ky) {
+    this.knockbackVx = kx;
+    this.knockbackVy = ky;
   }
 
   update(dt, input, bounds = { minX: -580, minY: -580, maxX: 580, maxY: 580 }) {
@@ -150,9 +159,13 @@ export class Player {
       }
     }
 
-    // 6. Update position
-    this.x += this.vx * dt;
-    this.y += this.vy * dt;
+    // 6. Update position with velocity & knockback
+    this.x += (this.vx + this.knockbackVx) * dt;
+    this.y += (this.vy + this.knockbackVy) * dt;
+
+    // Decay knockback smoothly
+    this.knockbackVx *= Math.pow(0.001, dt);
+    this.knockbackVy *= Math.pow(0.001, dt);
 
     // 7. Constrain to room bounds
     const radius = this.radius;
