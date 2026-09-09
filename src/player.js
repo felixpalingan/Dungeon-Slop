@@ -71,6 +71,9 @@ export class Player {
 
   triggerAttack() {
     this.isAttacking = true;
+    const weapon = this.equipment?.weapon;
+    const speed = weapon?.speed || 1.0;
+    this.attackDuration = Math.max(0.12, 0.22 / speed);
     this.attackTimer = this.attackDuration;
     this.attackProgress = 0;
   }

@@ -159,20 +159,204 @@ export class Renderer {
     const boots = equipment.boots;
     const is2H = weapon && weapon.hands === 2;
 
-    // --- SWORD ATTACK SLASH TRAIL ---
+    // --- WEAPON-SPECIFIC ATTACK ANIMATION & SLASH VISUALS ---
     if (isAttacking && attackProgress > 0 && attackProgress < 1) {
       ctx.save();
-      const slashReach = is2H ? radius + 46 : radius + 30;
-      const startAngle = -Math.PI * 0.48 + attackProgress * Math.PI * (is2H ? 1.3 : 0.9);
-      const arcSpread = Math.PI * 0.6;
+      const p = attackProgress;
 
-      ctx.beginPath();
-      ctx.arc(0, 0, slashReach, startAngle - arcSpread, startAngle);
-      ctx.strokeStyle = 'rgba(255, 255, 255, ' + (1 - attackProgress) + ')';
-      ctx.lineWidth = is2H ? 6 : 4;
-      ctx.shadowColor = is2H ? '#fbbf24' : '#00f0ff';
-      ctx.shadowBlur = 14;
-      ctx.stroke();
+      if (weapon?.visual === 'lapse_blue') {
+        // Gojo's Lapse Blue: Concentric expanding gravitational ripple rings & distortion
+        const reach = radius + 35 + p * 50;
+        ctx.shadowColor = '#00f0ff';
+        ctx.shadowBlur = 18;
+        ctx.lineWidth = 3;
+        // 3 Expanding gravitational shockwaves
+        for (let r = 1; r <= 3; r++) {
+          const ringDist = reach * (r / 3);
+          const ringAlpha = Math.max(0, (1 - p) * 0.85);
+          ctx.strokeStyle = `rgba(0, 240, 255, ${ringAlpha})`;
+          ctx.beginPath();
+          ctx.arc(ringDist, 0, 16 + r * 10, -Math.PI * 0.45, Math.PI * 0.45);
+          ctx.stroke();
+        }
+        // Inward suction streaks
+        ctx.strokeStyle = 'rgba(56, 189, 248, 0.75)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(reach + 20, -18);
+        ctx.lineTo(reach - 8, 0);
+        ctx.moveTo(reach + 20, 18);
+        ctx.lineTo(reach - 8, 0);
+        ctx.stroke();
+      } else if (weapon?.visual === 'sukuna_kamutoke') {
+        // Sukuna's Kamutoke: Crackling jagged lightning bolts sparking from dagger tip
+        const reach = radius + 30 + Math.sin(p * Math.PI * 3) * 35;
+        ctx.strokeStyle = '#fbbf24';
+        ctx.shadowColor = '#f59e0b';
+        ctx.shadowBlur = 16;
+        ctx.lineWidth = 2.5;
+
+        ctx.beginPath();
+        ctx.moveTo(radius + 15, 0);
+        ctx.lineTo(reach * 0.4, (Math.sin(p * 20) * 14));
+        ctx.lineTo(reach * 0.7, (Math.cos(p * 25) * 16));
+        ctx.lineTo(reach + 15, (Math.sin(p * 30) * 12));
+        ctx.stroke();
+
+        ctx.strokeStyle = '#ef4444';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(radius + 15, 0);
+        ctx.lineTo(reach * 0.5, (Math.cos(p * 20) * 12));
+        ctx.lineTo(reach + 10, (Math.sin(p * 15) * 8));
+        ctx.stroke();
+      } else if (weapon?.visual === 'sukuna_cleaver') {
+        // Sukuna's Malevolent Cleaver: Blood-red crescent cleave + crossing X dismantle slash
+        const slashReach = radius + 52;
+        const startAngle = -Math.PI * 0.4 + p * Math.PI * 1.35;
+        ctx.beginPath();
+        ctx.arc(0, 0, slashReach, startAngle - Math.PI * 0.55, startAngle);
+        ctx.strokeStyle = `rgba(239, 68, 68, ${1 - p})`;
+        ctx.lineWidth = 7;
+        ctx.shadowColor = '#ff2a5f';
+        ctx.shadowBlur = 20;
+        ctx.stroke();
+
+        // White razor edge
+        ctx.strokeStyle = `rgba(255, 255, 255, ${(1 - p) * 0.9})`;
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.arc(0, 0, slashReach, startAngle - Math.PI * 0.4, startAngle);
+        ctx.stroke();
+
+        // Intersecting X dismantle cut in front
+        if (p > 0.25 && p < 0.85) {
+          ctx.strokeStyle = 'rgba(255, 42, 95, 0.85)';
+          ctx.lineWidth = 3;
+          ctx.beginPath();
+          ctx.moveTo(slashReach - 15, -18);
+          ctx.lineTo(slashReach + 22, 18);
+          ctx.moveTo(slashReach - 15, 18);
+          ctx.lineTo(slashReach + 22, -18);
+          ctx.stroke();
+        }
+      } else if (weapon?.visual === 'inverted_spear_chain') {
+        // Toji's Inverted Spear: Long piercing silver thrust stream + uncoiling iron chain
+        const thrustReach = radius + 15 + Math.sin(p * Math.PI) * 65;
+        // Chain trail behind spear
+        ctx.strokeStyle = '#94a3b8';
+        ctx.lineWidth = 2.5;
+        ctx.setLineDash([4, 4]);
+        ctx.beginPath();
+        ctx.moveTo(10, 0);
+        ctx.lineTo(thrustReach - 15, 0);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Sharp thrust shockwave cone at tip
+        ctx.strokeStyle = `rgba(56, 189, 248, ${1 - p})`;
+        ctx.shadowColor = '#38bdf8';
+        ctx.shadowBlur = 14;
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(thrustReach - 10, -14);
+        ctx.lineTo(thrustReach + 20, 0);
+        ctx.lineTo(thrustReach - 10, 14);
+        ctx.stroke();
+      } else if (weapon?.visual === 'dragon_slayer') {
+        // Guts' Colossal Dragon Slayer: Massive dark iron cleave arc with crimson blood trim & debris sparks
+        const slashReach = radius + 64;
+        const cleaveArc = -Math.PI * 0.55 + p * Math.PI * 1.5;
+        ctx.beginPath();
+        ctx.arc(0, 0, slashReach, cleaveArc - Math.PI * 0.65, cleaveArc);
+        ctx.strokeStyle = `rgba(15, 23, 42, ${1 - p * 0.6})`;
+        ctx.lineWidth = 12;
+        ctx.stroke();
+
+        ctx.strokeStyle = `rgba(239, 68, 68, ${1 - p})`;
+        ctx.shadowColor = '#ef4444';
+        ctx.shadowBlur = 24;
+        ctx.lineWidth = 5;
+        ctx.beginPath();
+        ctx.arc(0, 0, slashReach, cleaveArc - Math.PI * 0.5, cleaveArc);
+        ctx.stroke();
+
+        // Flying red-hot metal friction sparks
+        for (let s = 0; s < 3; s++) {
+          const sparkAngle = cleaveArc - Math.PI * 0.18 * s;
+          const sx = Math.cos(sparkAngle) * (slashReach + 6 + s * 8);
+          const sy = Math.sin(sparkAngle) * (slashReach + 6 + s * 8);
+          ctx.fillStyle = '#f59e0b';
+          ctx.beginPath();
+          ctx.arc(sx, sy, 3, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      } else if (weapon?.visual === 'warhammer_2h') {
+        // Thunder Warhammer: Shockwave slam with radiating ground fracture sparks
+        const slamDist = radius + 38;
+        ctx.strokeStyle = `rgba(245, 158, 11, ${1 - p})`;
+        ctx.shadowColor = '#f59e0b';
+        ctx.shadowBlur = 18;
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.arc(slamDist, 0, 18 + p * 24, -Math.PI * 0.5, Math.PI * 0.5);
+        ctx.stroke();
+
+        // Concussive impact ring
+        ctx.strokeStyle = `rgba(255, 255, 255, ${(1 - p) * 0.8})`;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(slamDist, 0, 8 + p * 16, 0, Math.PI * 2);
+        ctx.stroke();
+      } else if (weapon?.visual === 'crystal_blade') {
+        // Crystal Scimitar: Dual turquoise prism arcs + refracting glints
+        const slashReach = radius + 34;
+        const startAngle = -Math.PI * 0.45 + p * Math.PI * 1.1;
+        ctx.beginPath();
+        ctx.arc(0, 0, slashReach, startAngle - Math.PI * 0.5, startAngle);
+        ctx.strokeStyle = `rgba(56, 189, 248, ${1 - p})`;
+        ctx.lineWidth = 4;
+        ctx.shadowColor = '#38bdf8';
+        ctx.shadowBlur = 16;
+        ctx.stroke();
+
+        // Inner refracted prism line
+        ctx.beginPath();
+        ctx.arc(0, 0, slashReach - 6, startAngle - Math.PI * 0.4, startAngle);
+        ctx.strokeStyle = `rgba(192, 132, 252, ${(1 - p) * 0.9})`;
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      } else if (weapon?.visual === 'greatsword_2h') {
+        // Titan Greatsword: Wide golden sweeping cleave arc
+        const slashReach = radius + 48;
+        const startAngle = -Math.PI * 0.52 + p * Math.PI * 1.35;
+        ctx.beginPath();
+        ctx.arc(0, 0, slashReach, startAngle - Math.PI * 0.65, startAngle);
+        ctx.strokeStyle = `rgba(251, 191, 36, ${1 - p})`;
+        ctx.lineWidth = 7;
+        ctx.shadowColor = '#fbbf24';
+        ctx.shadowBlur = 20;
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.arc(0, 0, slashReach, startAngle - Math.PI * 0.4, startAngle);
+        ctx.strokeStyle = `rgba(255, 255, 255, ${(1 - p) * 0.9})`;
+        ctx.lineWidth = 2.5;
+        ctx.stroke();
+      } else {
+        // Default sword/blade cleave arc
+        const slashReach = is2H ? radius + 46 : radius + 30;
+        const startAngle = -Math.PI * 0.48 + p * Math.PI * (is2H ? 1.3 : 0.9);
+        const arcSpread = Math.PI * 0.6;
+        ctx.beginPath();
+        ctx.arc(0, 0, slashReach, startAngle - arcSpread, startAngle);
+        ctx.strokeStyle = 'rgba(255, 255, 255, ' + (1 - p) + ')';
+        ctx.lineWidth = is2H ? 6 : 4;
+        ctx.shadowColor = is2H ? '#fbbf24' : '#00f0ff';
+        ctx.shadowBlur = 14;
+        ctx.stroke();
+      }
+
       ctx.restore();
     }
 
@@ -233,17 +417,32 @@ export class Renderer {
       if (offhand) {
         if (offhand.visual === 'reversal_red') {
           // Gojo's Reversal Red floating glowing sphere
-          const pulseRed = 8 + Math.sin(Date.now() * 0.008) * 2;
+          const pulseRed = (isSlapping && slapProgress > 0 && slapProgress < 1)
+            ? 16 + Math.sin(slapProgress * Math.PI) * 10
+            : 8 + Math.sin(Date.now() * 0.008) * 2;
           ctx.beginPath();
           ctx.arc(0, 0, pulseRed, 0, Math.PI * 2);
           ctx.fillStyle = '#ef4444';
           ctx.shadowColor = '#ef4444';
-          ctx.shadowBlur = 14;
+          ctx.shadowBlur = (isSlapping && slapProgress > 0 && slapProgress < 1) ? 26 : 14;
           ctx.fill();
           ctx.strokeStyle = '#fca5a5';
-          ctx.lineWidth = 2;
+          ctx.lineWidth = 2.5;
           ctx.stroke();
           ctx.shadowBlur = 0;
+
+          // Outward expanding red repulsion rings during slap
+          if (isSlapping && slapProgress > 0 && slapProgress < 1) {
+            ctx.save();
+            ctx.strokeStyle = `rgba(239, 68, 68, ${1 - slapProgress})`;
+            ctx.lineWidth = 3;
+            ctx.shadowColor = '#ef4444';
+            ctx.shadowBlur = 18;
+            ctx.beginPath();
+            ctx.arc(20 * slapProgress, 0, 16 + slapProgress * 22, -Math.PI * 0.45, Math.PI * 0.45);
+            ctx.stroke();
+            ctx.restore();
+          }
         } else if (offhand.visual === 'sukuna_hiten') {
           // Sukuna Hiten Fire Spear
           ctx.strokeStyle = '#ef4444';
@@ -309,10 +508,62 @@ export class Renderer {
     let swordAngle = 0;
 
     if (isAttacking && attackProgress > 0 && attackProgress < 1) {
-      const swingArc = -Math.PI * 0.45 + attackProgress * Math.PI * (is2H ? 1.4 : 1.1);
-      rightHandX = Math.cos(swingArc) * (handDistance + 3);
-      rightHandY = Math.sin(swingArc) * (handDistance + 3);
-      swordAngle = swingArc + Math.PI * 0.35;
+      const p = attackProgress;
+      if (weapon?.visual === 'lapse_blue') {
+        // Gojo: Forward gravitational thrust
+        const lunge = Math.sin(p * Math.PI) * 36;
+        rightHandX = 14 + lunge;
+        rightHandY = 4;
+        swordAngle = 0;
+      } else if (weapon?.visual === 'sukuna_kamutoke') {
+        // Sukuna: Rapid triple-stab thrusts
+        const stab = Math.max(0, Math.sin(p * Math.PI * 3)) * 34;
+        rightHandX = 12 + stab;
+        rightHandY = 8 + (p - 0.5) * 8;
+        swordAngle = (p - 0.5) * 0.15;
+      } else if (weapon?.visual === 'inverted_spear_chain') {
+        // Toji: Chain spear extension
+        const thrust = Math.sin(p * Math.PI) * 60;
+        rightHandX = 16 + thrust;
+        rightHandY = -thrust * 0.1;
+        swordAngle = -0.05;
+      } else if (weapon?.visual === 'dragon_slayer') {
+        // Guts: Massive overhead down-cleave
+        const cleaveArc = -Math.PI * 0.55 + p * Math.PI * 1.5;
+        rightHandX = Math.cos(cleaveArc) * (handDistance + 10);
+        rightHandY = Math.sin(cleaveArc) * (handDistance + 10);
+        swordAngle = cleaveArc + Math.PI * 0.4;
+      } else if (weapon?.visual === 'sukuna_cleaver') {
+        // Sukuna: Heavy diagonal butcher cleave
+        const cleaveArc = -Math.PI * 0.4 + p * Math.PI * 1.35;
+        rightHandX = Math.cos(cleaveArc) * (handDistance + 7);
+        rightHandY = Math.sin(cleaveArc) * (handDistance + 7);
+        swordAngle = cleaveArc + Math.PI * 0.35;
+      } else if (weapon?.visual === 'warhammer_2h') {
+        // Thunder Warhammer: Overhead vertical hammer slam
+        const downAngle = -Math.PI * 0.45 + p * Math.PI * 0.9;
+        rightHandX = 12 + Math.sin(p * Math.PI) * 16;
+        rightHandY = Math.sin(downAngle) * (handDistance + 6);
+        swordAngle = (p - 0.25) * 1.5;
+      } else if (weapon?.visual === 'crystal_blade') {
+        // Crystal Scimitar: Agile curved figure-8 slice
+        const sliceArc = -Math.PI * 0.4 + p * Math.PI * 1.25;
+        rightHandX = Math.cos(sliceArc) * (handDistance + 4);
+        rightHandY = Math.sin(sliceArc) * (handDistance + 4);
+        swordAngle = sliceArc + Math.PI * 0.3;
+      } else if (weapon?.visual === 'greatsword_2h') {
+        // Titan Greatsword: Wide sweeping horizontal broad cleave
+        const cleaveArc = -Math.PI * 0.5 + p * Math.PI * 1.35;
+        rightHandX = Math.cos(cleaveArc) * (handDistance + 6);
+        rightHandY = Math.sin(cleaveArc) * (handDistance + 6);
+        swordAngle = cleaveArc + Math.PI * 0.38;
+      } else {
+        // Standard sword swing
+        const swingArc = -Math.PI * 0.45 + p * Math.PI * (is2H ? 1.4 : 1.1);
+        rightHandX = Math.cos(swingArc) * (handDistance + 3);
+        rightHandY = Math.sin(swingArc) * (handDistance + 3);
+        swordAngle = swingArc + Math.PI * 0.35;
+      }
     }
 
     ctx.save();
@@ -405,15 +656,17 @@ export class Renderer {
       ctx.stroke();
     } else if (weapon?.visual === 'lapse_blue') {
       // Gojo's Lapse Blue floating gravitational sphere
-      const pulseBlue = 9 + Math.sin(Date.now() * 0.009) * 2;
+      const pulseBlue = (isAttacking && attackProgress > 0 && attackProgress < 1)
+        ? 15 + Math.sin(attackProgress * Math.PI) * 14
+        : 9 + Math.sin(Date.now() * 0.009) * 2;
       ctx.beginPath();
       ctx.arc(14, 0, pulseBlue, 0, Math.PI * 2);
       ctx.fillStyle = '#0284c7';
       ctx.shadowColor = '#00f0ff';
-      ctx.shadowBlur = 16;
+      ctx.shadowBlur = (isAttacking && attackProgress > 0 && attackProgress < 1) ? 30 : 16;
       ctx.fill();
       ctx.strokeStyle = '#bae6fd';
-      ctx.lineWidth = 2;
+      ctx.lineWidth = 2.5;
       ctx.stroke();
       ctx.shadowBlur = 0;
     } else if (weapon?.visual === 'sukuna_kamutoke') {

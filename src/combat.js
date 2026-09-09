@@ -138,21 +138,21 @@ export class CombatSystem {
       player.currentSpeed = player.baseSpeed * 1.45;
       this.particles.spawnComicText(player.x, player.y - 32, 'INFINITY BARRIER!', '#00f0ff');
       this.particles.spawnDashBurst(player.x, player.y, 0, '#00f0ff');
-      this.audio.playSwing();
+      this.audio.playBarrierHum();
       setTimeout(() => {
         player.isInvulnerable = false;
         player.currentSpeed = player.baseSpeed;
       }, 3500);
     } else if (chest.baseQ === 'dismantle' || chest.visual === 'sukuna_robe') {
       // Dismantle: 3 rapid cursed razor slashes
-      this.audio.playSwing();
+      this.audio.playDismantleCuts();
       this.particles.spawnComicText(player.x, player.y - 32, 'DISMANTLE!', '#ff2a5f');
       if (triggerCinematicCallback) {
         triggerCinematicCallback('dismantle', player);
       }
     } else if (chest.baseQ === 'spartan_kick' || chest.visual === 'toji_shirt') {
       // Spartan Kick: Colossal forward lunge & knockback shockwave
-      this.audio.playBonk();
+      this.audio.playSpartanKick();
       player.vx = Math.cos(player.angle) * 750;
       player.vy = Math.sin(player.angle) * 750;
       this.particles.spawnComicText(player.x, player.y - 32, 'SPARTAN KICK!', '#38bdf8');
@@ -162,7 +162,7 @@ export class CombatSystem {
       }
     } else if (chest.baseQ === 'cannon_arm' || chest.visual === 'guts_berserker_plate') {
       // Guts Cannon Arm: Left arm prosthetic flips open firing explosive blast
-      this.audio.playClang();
+      this.audio.playExplosion();
       this.particles.spawnComicText(player.x, player.y - 32, 'CANNON BLAST!', '#fbbf24');
       if (triggerCinematicCallback) {
         triggerCinematicCallback('cannon_arm', player);
@@ -178,13 +178,13 @@ export class CombatSystem {
       player.isHardened = true;
       setTimeout(() => (player.isHardened = false), 4000);
       this.particles.spawnComicText(player.x, player.y - 32, 'IRON BASTION!', '#38bdf8');
-      this.audio.playBonk();
+      this.audio.playShieldLock();
     } else {
       // War Cry
       this.particles.spawnComicText(player.x, player.y - 32, 'WAR CRY! +SPEED', '#ff3366');
       player.vx *= 1.5;
       player.vy *= 1.5;
-      this.audio.playSwing();
+      this.audio.playWarCry();
     }
 
     return true;

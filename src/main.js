@@ -79,11 +79,12 @@ const dungeonBounds = { minX: -600, minY: -600, maxX: 600, maxY: 600 };
 // Auto-initialize audio on user gesture
 const unlockAudio = () => {
   audio.init();
-  window.removeEventListener('click', unlockAudio);
-  window.removeEventListener('keydown', unlockAudio);
 };
-window.addEventListener('click', unlockAudio);
-window.addEventListener('keydown', unlockAudio);
+window.addEventListener('pointerdown', unlockAudio, { passive: true });
+window.addEventListener('mousedown', unlockAudio, { passive: true });
+window.addEventListener('keydown', unlockAudio, { passive: true });
+window.addEventListener('touchstart', unlockAudio, { passive: true });
+window.addEventListener('click', unlockAudio, { passive: true });
 
 readyCircle.onDescentTriggered = () => {
   audio.playDescentFanfare();
@@ -496,6 +497,40 @@ setInterval(() => {
 }, 50);
 
 // --- COMBAT WEAPON & BLOCKING LOGIC ---
+function playWeaponAttackSound(weapon) {
+  audio.init();
+  if (!weapon) {
+    audio.playSwing();
+    return;
+  }
+  switch (weapon.visual) {
+    case 'lapse_blue':
+      audio.playGravitationalSurge();
+      break;
+    case 'sukuna_kamutoke':
+      audio.playLightningDagger();
+      break;
+    case 'sukuna_cleaver':
+      audio.playCleaverSlash();
+      break;
+    case 'inverted_spear_chain':
+      audio.playChainThrust();
+      break;
+    case 'dragon_slayer':
+      audio.playHeavyGreatswordSwing();
+      break;
+    case 'warhammer_2h':
+      audio.playHammerSmash();
+      break;
+    case 'crystal_blade':
+      audio.playCrystalSlash();
+      break;
+    default:
+      audio.playSwing();
+      break;
+  }
+}
+
 function handleAttacks() {
   const targets = [dummy, ...network.remotePlayers.values()];
   const hits = combat.performWeaponAttack(player, targets);
@@ -504,16 +539,27 @@ function handleAttacks() {
     if (hit.target === dummy) {
       dummy.takeHit(hit.damage, hit.angle);
       
-      // Weapon specific sound fx!
-      if (player.equipment?.weapon?.id === 'dragon_slayer') {
+      // Weapon specific impact sound fx!
+      const weaponVisual = player.equipment?.weapon?.visual;
+      if (weaponVisual === 'dragon_slayer') {
         audio.playClang();
+        cinematics.addScreenShake(12);
+      } else if (weaponVisual === 'warhammer_2h') {
+        audio.playHammerSmash();
         cinematics.addScreenShake(10);
-      } else if (player.equipment?.weapon?.id === 'sukuna_kamutoke') {
+      } else if (weaponVisual === 'sukuna_kamutoke') {
         audio.playLightningDagger();
-      } else if (player.equipment?.weapon?.id === 'inverted_spear_chain') {
-        audio.playSwing();
+      } else if (weaponVisual === 'sukuna_cleaver') {
+        audio.playCleaverSlash();
+        cinematics.addScreenShake(6);
+      } else if (weaponVisual === 'lapse_blue') {
+        audio.playGravitationalSurge();
+      } else if (weaponVisual === 'inverted_spear_chain') {
+        audio.playChainThrust();
+      } else if (weaponVisual === 'crystal_blade') {
+        audio.playCrystalSlash();
       } else {
-        audio.playSwing();
+        audio.playBonk();
       }
 
       const popupText = hit.isCrit ? `CRIT! -${hit.damage}` : `HIT! -${hit.damage}`;
@@ -652,6 +698,7 @@ function gameLoop(now) {
   // Left Click Weapon Attack
   if (input.justPressedLeft && !modalsOpen) {
     player.triggerAttack();
+    playWeaponAttackSound(player.equipment?.weapon);
     handleAttacks();
     broadcastMyState();
   }
@@ -659,13 +706,42 @@ function gameLoop(now) {
   // Right Click Slap / Special Off-hand
   if (input.justPressedRight && !modalsOpen && !player.isBlocking) {
     player.triggerSlap();
-    audio.playBonk();
-    particles.spawnComicText(
-      player.x + Math.cos(player.angle) * 32,
-      player.y + Math.sin(player.angle) * 32,
-      'BONK!',
-      '#ff0055'
-    );
+    const offhandVisual = player.equipment?.offhand?.visual;
+    if (offhandVisual === 'reversal_red') {
+      audio.playRepulsionBurst();
+      cinematics.addScreenShake(6);
+      particles.spawnComicText(
+        player.x + Math.cos(player.angle) * 36,
+        player.y + Math.sin(player.angle) * 36,
+        'REVERSAL RED!',
+        '#ef4444'
+      );
+    } else if (offhandVisual === 'sukuna_hiten') {
+      audio.playFireSpear();
+      cinematics.addScreenShake(5);
+      particles.spawnComicText(
+        player.x + Math.cos(player.angle) * 36,
+        player.y + Math.sin(player.angle) * 36,
+        'FIRE THRUST!',
+        '#f97316'
+      );
+    } else if (offhandVisual === 'tome') {
+      audio.playBarrierHum();
+      particles.spawnComicText(
+        player.x + Math.cos(player.angle) * 32,
+        player.y + Math.sin(player.angle) * 32,
+        'RUNE PULSE!',
+        '#a855f7'
+      );
+    } else {
+      audio.playBonk();
+      particles.spawnComicText(
+        player.x + Math.cos(player.angle) * 32,
+        player.y + Math.sin(player.angle) * 32,
+        'BONK!',
+        '#ff0055'
+      );
+    }
     handleAttacks();
     broadcastMyState();
   }
