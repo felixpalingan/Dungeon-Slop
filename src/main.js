@@ -637,7 +637,7 @@ function gameLoop(now) {
   }
 
   // [Q] Key: Active ability (Checks for Full Set Ultimate first, then Base Chest ability)
-  if (input.keys.q && !modalsOpen) {
+  if (input.justPressedQ && !modalsOpen) {
     combat.triggerActiveAbility(player, activeSet, onTriggerCinematic);
   }
 

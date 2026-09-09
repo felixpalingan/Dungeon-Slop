@@ -10,20 +10,26 @@ export class ParticleManager {
   }
 
   /**
-   * Spawns floating comic text (e.g. 'DODGE!', 'SWOOSH!', 'BONK!')
+   * Spawns floating comic text (e.g. 'DODGE!', 'SWOOSH!', 'BONK!', 'COOLDOWN 3.2s')
    */
   spawnComicText(x, y, text, color = '#ffea00') {
+    const isCooldown = text.includes('COOLDOWN');
+    if (isCooldown) {
+      // Clear any previous cooldown indicators so they never overlap into an unreadable mess
+      this.comicTexts = this.comicTexts.filter((t) => !t.text.includes('COOLDOWN'));
+    }
+
     this.comicTexts.push({
       x,
-      y: y - 20,
-      vx: (Math.random() - 0.5) * 35,
-      vy: -65 - Math.random() * 30,
+      y: y - (isCooldown ? 28 : 20),
+      vx: isCooldown ? 0 : (Math.random() - 0.5) * 35,
+      vy: isCooldown ? -42 : -65 - Math.random() * 30,
       text,
       color,
       alpha: 1.0,
-      scale: 1.4,
-      rotation: (Math.random() - 0.5) * 0.35,
-      life: 0.75
+      scale: isCooldown ? 1.25 : 1.4,
+      rotation: isCooldown ? 0 : (Math.random() - 0.5) * 0.35,
+      life: isCooldown ? 0.9 : 0.75
     });
   }
 
