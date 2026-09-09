@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Dungeon Slop - Co-op Dungeon Crawler</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800;900&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+  <div id="app">
+    <!-- Game Canvas Viewport -->
+    <div id="canvas-container">
+      <canvas id="game-canvas"></canvas>
+    </div>
+
+    <!-- HUD Overlay -->
+    <div id="hud-overlay" class="ui-layer">
+      <div class="hud-top-left">
+        <div class="player-badge">
+          <div class="player-avatar-preview" id="hud-avatar"></div>
+          <div class="player-status">
+            <span class="player-name" id="hud-player-name">SlopCrawler</span>
+            <div class="bar-container hp-bar-bg">
+              <div class="bar-fill hp-fill" id="hud-hp-fill" style="width: 100%;"></div>
+              <span class="bar-text" id="hud-hp-text">100 / 100</span>
+            </div>
+            <div class="bar-container stamina-bar-bg">
+              <div class="bar-fill stamina-fill" id="hud-stamina-fill" style="width: 100%;"></div>
+              <span class="bar-text" id="hud-stamina-text">STAMINA [SHIFT]</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="hud-top-center">
+        <div class="floor-badge">
+          <span class="floor-label">FLOOR</span>
+          <span class="floor-number" id="hud-floor">1</span>
+        </div>
+      </div>
+
+      <div class="hud-top-right">
+        <div class="network-badge" id="hud-network-badge">
+          <span class="ping-dot online" id="hud-ping-dot"></span>
+          <span id="hud-network-status">SOLO</span>
+        </div>
+        <button id="btn-open-lobby" class="lobby-btn">LOBBY / CO-OP</button>
+      </div>
+
+      <!-- Multiplayer Lobby Modal Overlay -->
+      <div id="lobby-modal" class="modal-backdrop interactive hidden">
+        <div class="modal-card">
+          <h2 class="modal-title">DUNGEON SLOP LOBBY</h2>
+          <p class="modal-subtitle">Delve with up to 6 players via WebRTC</p>
+
+          <div class="lobby-section">
+            <label>Your Adventurer Name</label>
+            <input type="text" id="input-player-name" value="SlopCrawler" maxlength="14" />
+          </div>
+
+          <div class="lobby-section">
+            <label>Color Hue</label>
+            <div class="color-palette">
+              <button class="color-btn selected" style="background:#00f0ff;" data-color="#00f0ff"></button>
+              <button class="color-btn" style="background:#ff3366;" data-color="#ff3366"></button>
+              <button class="color-btn" style="background:#00ff88;" data-color="#00ff88"></button>
+              <button class="color-btn" style="background:#ffb800;" data-color="#ffb800"></button>
+              <button class="color-btn" style="background:#a855f7;" data-color="#a855f7"></button>
+              <button class="color-btn" style="background:#ff7700;" data-color="#ff7700"></button>
+            </div>
+          </div>
+
+          <div class="lobby-divider"></div>
+
+          <div class="lobby-actions">
+            <button id="btn-create-room" class="action-btn primary-btn">CREATE ROOM (HOST)</button>
+
+            <div class="join-row">
+              <input type="text" id="input-room-code" placeholder="SLOP-XXXX" maxlength="9" />
+              <button id="btn-join-room" class="action-btn secondary-btn">JOIN</button>
+            </div>
+          </div>
+
+          <div id="lobby-active-room" class="active-room-box hidden">
+            <div class="room-code-display">
+              <span>ROOM CODE:</span>
+              <strong id="display-room-code">SLOP-XXXX</strong>
+            </div>
+            <button id="btn-copy-link" class="action-btn outline-btn">COPY INVITE LINK</button>
+            <div class="connected-players-list">
+              <span>Party Members (<span id="party-count">1</span>/6):</span>
+              <ul id="party-roster"></ul>
+            </div>
+          </div>
+
+          <button id="btn-close-lobby" class="close-modal-btn">CLOSE</button>
+        </div>
+      </div>
+
+      <div class="hud-bottom-center">
+        <div class="controls-hint">
+          <span><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> Move</span>
+          <span><kbd>SHIFT</kbd> Roll / Dash</span>
+          <span><kbd>L-CLICK</kbd> Attack</span>
+          <span><kbd>R-CLICK</kbd> Off-hand</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>
