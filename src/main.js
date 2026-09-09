@@ -7,9 +7,10 @@ import { NetworkManager } from './network.js';
 import { Dummy } from './dummy.js';
 import { ReadyCircle } from './readyCircle.js';
 import { CustomizationStation } from './customizationStation.js';
-import { ITEM_CATALOG, ItemRarity } from './items.js';
+import { ITEM_CATALOG, ItemRarity, checkSetBonus } from './items.js';
 import { CombatSystem } from './combat.js';
 import { GroundLoot } from './groundLoot.js';
+import { CinematicManager } from './cinematics.js';
 
 const canvas = document.getElementById('game-canvas');
 const renderer = new Renderer(canvas);
@@ -28,6 +29,7 @@ const audio = new AudioManager();
 const particles = new ParticleManager();
 const network = new NetworkManager();
 const combat = new CombatSystem(audio, particles);
+const cinematics = new CinematicManager();
 
 // Lobby entities
 const dummy = new Dummy(0, -180);
@@ -37,16 +39,40 @@ const wardrobeStation = new CustomizationStation(-240, -120);
 // Ground loot items in world (trading & drops)
 const groundItems = new Map();
 
-// Spawn some demo loot items in the lobby to test pickup & trading!
-const demoLoot1 = new GroundLoot(ITEM_CATALOG['titan_greatsword'], -120, 0);
-const demoLoot2 = new GroundLoot(ITEM_CATALOG['iron_tower_shield'], 120, 0);
-const demoLoot3 = new GroundLoot(ITEM_CATALOG['horned_barbarian_helm'], 160, -80);
-const demoLoot4 = new GroundLoot(ITEM_CATALOG['celestial_mantle'], -160, -80);
+// Spawn Batch 1 Anime Demo Sets across the lobby!
+const batch1Loot = [
+  // Gojo items
+  new GroundLoot(ITEM_CATALOG['gojo_blindfold'], -160, -40),
+  new GroundLoot(ITEM_CATALOG['gojo_tunic'], -120, -40),
+  new GroundLoot(ITEM_CATALOG['gojo_slacks'], -80, -40),
+  new GroundLoot(ITEM_CATALOG['gojo_loafers'], -40, -40),
+  new GroundLoot(ITEM_CATALOG['lapse_blue'], 0, -40),
+  new GroundLoot(ITEM_CATALOG['reversal_red'], 40, -40),
 
-groundItems.set(demoLoot1.id, demoLoot1);
-groundItems.set(demoLoot2.id, demoLoot2);
-groundItems.set(demoLoot3.id, demoLoot3);
-groundItems.set(demoLoot4.id, demoLoot4);
+  // Sukuna items
+  new GroundLoot(ITEM_CATALOG['sukuna_crown'], -160, 20),
+  new GroundLoot(ITEM_CATALOG['sukuna_robe'], -120, 20),
+  new GroundLoot(ITEM_CATALOG['sukuna_hakama'], -80, 20),
+  new GroundLoot(ITEM_CATALOG['sukuna_zori'], -40, 20),
+  new GroundLoot(ITEM_CATALOG['sukuna_kamutoke'], 0, 20),
+  new GroundLoot(ITEM_CATALOG['sukuna_cleaver'], 40, 20),
+
+  // Toji items
+  new GroundLoot(ITEM_CATALOG['toji_worm'], 100, -40),
+  new GroundLoot(ITEM_CATALOG['toji_shirt'], 140, -40),
+  new GroundLoot(ITEM_CATALOG['toji_pants'], 180, -40),
+  new GroundLoot(ITEM_CATALOG['toji_slippers'], 220, -40),
+  new GroundLoot(ITEM_CATALOG['inverted_spear_chain'], 260, -40),
+
+  // Guts items
+  new GroundLoot(ITEM_CATALOG['guts_beast_helm'], 100, 20),
+  new GroundLoot(ITEM_CATALOG['guts_berserker_plate'], 140, 20),
+  new GroundLoot(ITEM_CATALOG['guts_greaves'], 180, 20),
+  new GroundLoot(ITEM_CATALOG['guts_sollerets'], 220, 20),
+  new GroundLoot(ITEM_CATALOG['dragon_slayer'], 260, 20)
+];
+
+batch1Loot.forEach((loot) => groundItems.set(loot.id, loot));
 
 const dungeonBounds = { minX: -600, minY: -600, maxX: 600, maxY: 600 };
 
@@ -99,6 +125,21 @@ function closeInventory() {
 btnCloseInventory.addEventListener('click', closeInventory);
 
 function renderInventoryUI() {
+  // Check active set bonus
+  const activeSet = checkSetBonus(player.equipment);
+  const setBadge = document.getElementById('set-bonus-badge');
+  if (setBadge) {
+    if (activeSet) {
+      setBadge.style.display = 'block';
+      setBadge.style.background = `${activeSet.color}22`;
+      setBadge.style.border = `1px solid ${activeSet.color}`;
+      setBadge.style.color = activeSet.color;
+      setBadge.innerHTML = `✨ SET BONUS ACTIVE: ${activeSet.name} — [Q] REPLACED WITH ${activeSet.ultimateQ.toUpperCase().replace(/_/g, ' ')}!`;
+    } else {
+      setBadge.style.display = 'none';
+    }
+  }
+
   // 1. Render 6 Equipment slots
   const slots = ['helmet', 'chest', 'pants', 'boots', 'weapon', 'offhand'];
   slots.forEach((slot) => {
@@ -430,6 +471,15 @@ network.onMessageReceived = (fromPeerId, msg) => {
     audio.playBonk();
     const hitLabel = msg.isCrit ? `CRIT! -${msg.damage}` : `-${msg.damage}`;
     particles.spawnComicText(dummy.x, dummy.y - 24, hitLabel, msg.isCrit ? '#ff0055' : '#ffea00');
+  } else if (msg.type === 'CINEMATIC_ULTIMATE') {
+    // Remote peer triggered an anime cinematic ultimate!
+    const remote = network.remotePlayers.get(fromPeerId) || { x: msg.x, y: msg.y, angle: msg.angle };
+    cinematics.trigger(msg.ultimateType, remote);
+    if (msg.ultimateType === 'hollow_purple') audio.playHollowPurple();
+    else if (msg.ultimateType === 'world_cutting_slash') audio.playWorldCuttingSlash();
+    else if (msg.ultimateType === 'inverted_chain_rampage') audio.playChainRampage();
+    else if (msg.ultimateType === 'berserker_rage') { audio.playBerserkRoar(); audio.playClang(); }
+    if (network.isHost) network.broadcast(msg);
   } else if (msg.type === 'LOOT_SPAWNED') {
     const dropped = new GroundLoot(msg.item, msg.x, msg.y, msg.id);
     groundItems.set(dropped.id, dropped);
@@ -453,7 +503,19 @@ function handleAttacks() {
   for (const hit of hits) {
     if (hit.target === dummy) {
       dummy.takeHit(hit.damage, hit.angle);
-      audio.playSwing();
+      
+      // Weapon specific sound fx!
+      if (player.equipment?.weapon?.id === 'dragon_slayer') {
+        audio.playClang();
+        cinematics.addScreenShake(10);
+      } else if (player.equipment?.weapon?.id === 'sukuna_kamutoke') {
+        audio.playLightningDagger();
+      } else if (player.equipment?.weapon?.id === 'inverted_spear_chain') {
+        audio.playSwing();
+      } else {
+        audio.playSwing();
+      }
+
       const popupText = hit.isCrit ? `CRIT! -${hit.damage}` : `HIT! -${hit.damage}`;
       particles.spawnComicText(dummy.x, dummy.y - 24, popupText, hit.isCrit ? '#ff0055' : '#fbbf24');
 
@@ -476,6 +538,24 @@ function handleAttacks() {
       }
     }
   }
+}
+
+// Cinematic ultimate trigger handler
+function onTriggerCinematic(ultimateType, triggeringPlayer) {
+  cinematics.trigger(ultimateType, triggeringPlayer);
+
+  // Sync ultimate activation to remote peers
+  const ultimateMsg = {
+    type: 'CINEMATIC_ULTIMATE',
+    ultimateType,
+    peerId: network.myPeerId,
+    x: triggeringPlayer.x,
+    y: triggeringPlayer.y,
+    angle: triggeringPlayer.angle
+  };
+
+  if (network.isHost) network.broadcast(ultimateMsg);
+  else network.sendToHost(ultimateMsg);
 }
 
 // --- MAIN GAME LOOP ---
@@ -530,6 +610,23 @@ function gameLoop(now) {
     loot.update(dt);
   }
 
+  // Check Set Bonus
+  const activeSet = checkSetBonus(player.equipment);
+
+  // Update Cinematics & Projectiles (collision with training dummy)
+  cinematics.update(dt, [dummy], (target, proj) => {
+    if (target === dummy) {
+      dummy.takeHit(proj.damage, Math.atan2(proj.vy, proj.vx));
+      audio.playClang();
+      particles.spawnComicText(dummy.x, dummy.y - 28, `ULTIMATE! -${proj.damage}`, '#ff2a5f');
+      cinematics.addScreenShake(18);
+
+      const hitMsg = { type: 'DUMMY_HIT', damage: proj.damage, angle: 0, isCrit: true };
+      if (network.isHost) network.broadcast(hitMsg);
+      else network.sendToHost(hitMsg);
+    }
+  });
+
   // [E] Key interactions (Pick up loot OR Open Mirror)
   if (input.justPressedE && !modalsOpen) {
     if (wardrobeStation.isPlayerNearby(player)) {
@@ -539,9 +636,9 @@ function gameLoop(now) {
     }
   }
 
-  // [Q] Key: Chest piece active ability
+  // [Q] Key: Active ability (Checks for Full Set Ultimate first, then Base Chest ability)
   if (input.keys.q && !modalsOpen) {
-    combat.triggerChestAbility(player);
+    combat.triggerActiveAbility(player, activeSet, onTriggerCinematic);
   }
 
   // Left Shift Roll
@@ -555,12 +652,11 @@ function gameLoop(now) {
   // Left Click Weapon Attack
   if (input.justPressedLeft && !modalsOpen) {
     player.triggerAttack();
-    audio.playSwing();
     handleAttacks();
     broadcastMyState();
   }
 
-  // Right Click Slap
+  // Right Click Slap / Special Off-hand
   if (input.justPressedRight && !modalsOpen && !player.isBlocking) {
     player.triggerSlap();
     audio.playBonk();
@@ -577,9 +673,10 @@ function gameLoop(now) {
   // 2. Update particles
   particles.update(dt);
 
-  // 3. Render frame
+  // 3. Render frame with screen shake
+  const shake = cinematics.getShakeOffset();
   renderer.clear();
-  renderer.beginCamera(player.x, player.y);
+  renderer.beginCamera(player.x + shake.x, player.y + shake.y);
 
   // Background stone floor
   renderer.drawDungeonFloor(dungeonBounds);
@@ -608,6 +705,9 @@ function gameLoop(now) {
   renderer.drawAfterImages(player.afterImages);
   particles.draw(renderer.ctx);
 
+  // Draw in-world cinematic projectiles (Hollow Purple, World Cutting Slash, Chains)
+  cinematics.drawWorld(renderer.ctx);
+
   // Draw remote peers
   for (const [_, remote] of network.remotePlayers.entries()) {
     renderer.drawCharacter(remote);
@@ -618,6 +718,9 @@ function gameLoop(now) {
 
   renderer.endCamera();
 
+  // Full-screen post-processing cinematic overlays (Dark purple vortex, screen bisection cut, blood-red vignette)
+  cinematics.drawScreenOverlay(renderer.ctx, renderer.width, renderer.height);
+
   // 4. Clear single-frame input flags
   input.endFrame();
 
@@ -625,4 +728,4 @@ function gameLoop(now) {
 }
 
 requestAnimationFrame(gameLoop);
-console.log('Step 3.3: Ground Loot, Inventory UI, and Trading integrated successfully');
+console.log('Step 3.4.3: Cinematic ultimates, projectile math, and set bonus attacks active');
