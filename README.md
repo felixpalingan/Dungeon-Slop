@@ -9,6 +9,10 @@ A chaotic 1-6 player cooperative top-down dungeon crawler designed for friend sl
 - **Slop Comedy & Sound FX**: Synthesized Web Audio effects (whooshes, hits, slaps) paired with floating comic popups (`DODGE!`, `SWOOSH!`, `BONK!`).
 - **Interactive Lobby & Gear System**: Character name/color customizer, training dummy, slap physics, and 6-slot equipment systems.
 
+## Documentation & Planning
+- 🗺️ **[Development Roadmap & Implementation Plan](./ROADMAP.md)**: Full phase-by-phase development timeline, completed milestones, and upcoming dungeon generation / revive mechanics.
+- ⚡ **[Anime Equipment & Armor Sets Roster](./ANIME_EQUIPMENT.md)**: Complete stats, scaling, 2D vector shapes, attack animations, sound design, and full-screen cinematic ultimates across all batches.
+
 ## Getting Started
 ```bash
 # Install dependencies
