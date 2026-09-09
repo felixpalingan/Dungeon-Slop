@@ -51,15 +51,19 @@ export class Player {
     this.slapTimer = 0;
     this.slapProgress = 0; // 0 to 1
 
-    // Equipment state placeholder
+    // 6 Equipment Slots
     this.equipment = {
       helmet: null,
       chest: null,
       pants: null,
       boots: null,
-      weapon: { name: 'Iron Broadsword', type: '1h' },
-      offhand: { name: 'Round Shield', type: 'shield' }
+      weapon: null,
+      offhand: null
     };
+
+    // Inventory backpack slots (holds up to 10 unequipped items)
+    this.inventory = [];
+    this.maxInventorySize = 10;
   }
 
   triggerAttack() {
@@ -77,6 +81,78 @@ export class Player {
   applyKnockback(kx, ky) {
     this.knockbackVx = kx;
     this.knockbackVy = ky;
+  }
+
+  /**
+   * Equips an item into its designated slot.
+   * If equipping a 2-handed weapon, un-equips the off-hand automatically.
+   * If equipping an off-hand while holding a 2-handed weapon, un-equips the 2H weapon!
+   */
+  equipItem(item) {
+    if (!item || !item.slot) return null;
+
+    let unequippedItems = [];
+
+    if (item.slot === 'weapon') {
+      // If equipping 2-handed weapon, must unequip offhand
+      if (item.hands === 2 && this.equipment.offhand) {
+        unequippedItems.push(this.equipment.offhand);
+        this.equipment.offhand = null;
+      }
+      if (this.equipment.weapon) {
+        unequippedItems.push(this.equipment.weapon);
+      }
+      this.equipment.weapon = item;
+    } else if (item.slot === 'offhand') {
+      // Cannot equip offhand if currently holding a 2H weapon; unequip the 2H weapon
+      if (this.equipment.weapon && this.equipment.weapon.hands === 2) {
+        unequippedItems.push(this.equipment.weapon);
+        this.equipment.weapon = null;
+      }
+      if (this.equipment.offhand) {
+        unequippedItems.push(this.equipment.offhand);
+      }
+      this.equipment.offhand = item;
+    } else {
+      // Armor slots (helmet, chest, pants, boots)
+      if (this.equipment[item.slot]) {
+        unequippedItems.push(this.equipment[item.slot]);
+      }
+      this.equipment[item.slot] = item;
+    }
+
+    this.recalculateStats();
+    return unequippedItems;
+  }
+
+  unequipSlot(slot) {
+    if (!this.equipment[slot]) return null;
+    const removed = this.equipment[slot];
+    this.equipment[slot] = null;
+    this.recalculateStats();
+    return removed;
+  }
+
+  recalculateStats() {
+    let bonusHp = 0;
+    let bonusSpeed = 0;
+    let bonusStaminaRegen = 0;
+    let rollCostReduction = 0;
+
+    for (const slot in this.equipment) {
+      const item = this.equipment[slot];
+      if (!item) continue;
+      if (item.hp) bonusHp += item.hp;
+      if (item.speedBonus) bonusSpeed += item.speedBonus;
+      if (item.staminaRegen) bonusStaminaRegen += item.staminaRegen;
+      if (item.rollCostReduction) rollCostReduction += item.rollCostReduction;
+    }
+
+    this.maxHp = 100 + bonusHp;
+    this.hp = Math.min(this.hp, this.maxHp);
+    this.baseSpeed = 260 + bonusSpeed;
+    this.staminaRegen = 32 + bonusStaminaRegen;
+    this.rollCost = Math.max(15, 35 - rollCostReduction);
   }
 
   update(dt, input, bounds = { minX: -580, minY: -580, maxX: 580, maxY: 580 }) {

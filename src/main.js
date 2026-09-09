@@ -7,11 +7,21 @@ import { NetworkManager } from './network.js';
 import { Dummy } from './dummy.js';
 import { ReadyCircle } from './readyCircle.js';
 import { CustomizationStation } from './customizationStation.js';
+import { ITEM_CATALOG } from './items.js';
 
 const canvas = document.getElementById('game-canvas');
 const renderer = new Renderer(canvas);
 const input = new InputManager();
 const player = new Player(0, 0);
+
+// Equip starter equipment set
+player.equipItem(ITEM_CATALOG['rusty_sword']);
+player.equipItem(ITEM_CATALOG['wooden_buckler']);
+player.equipItem(ITEM_CATALOG['iron_visor']);
+player.equipItem(ITEM_CATALOG['leather_tunic']);
+player.equipItem(ITEM_CATALOG['cloth_pants']);
+player.equipItem(ITEM_CATALOG['travel_boots']);
+
 const audio = new AudioManager();
 const particles = new ParticleManager();
 const network = new NetworkManager();
@@ -198,7 +208,8 @@ function broadcastMyState() {
     isSlapping: player.isSlapping,
     slapProgress: player.slapProgress,
     hp: player.hp,
-    maxHp: player.maxHp
+    maxHp: player.maxHp,
+    equipment: player.equipment
   };
 
   if (network.isHost) {
