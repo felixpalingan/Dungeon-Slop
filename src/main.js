@@ -17,13 +17,22 @@ const renderer = new Renderer(canvas);
 const input = new InputManager();
 const player = new Player(0, 0);
 
-// Equip starter equipment set
-player.equipItem(ITEM_CATALOG['rusty_sword']);
-player.equipItem(ITEM_CATALOG['wooden_buckler']);
-player.equipItem(ITEM_CATALOG['iron_visor']);
-player.equipItem(ITEM_CATALOG['leather_tunic']);
-player.equipItem(ITEM_CATALOG['cloth_pants']);
-player.equipItem(ITEM_CATALOG['travel_boots']);
+// Start equipped as Humanity's Strongest Soldier (Levi Ackerman)
+player.equipItem(ITEM_CATALOG['scout_hood']);
+player.equipItem(ITEM_CATALOG['odm_harness']);
+player.equipItem(ITEM_CATALOG['scout_trousers']);
+player.equipItem(ITEM_CATALOG['scout_boots']);
+player.equipItem(ITEM_CATALOG['dual_snap_blades']);
+
+// Store starter dungeon gear in backpack inventory
+player.inventory.push(
+  ITEM_CATALOG['rusty_sword'],
+  ITEM_CATALOG['wooden_buckler'],
+  ITEM_CATALOG['iron_visor'],
+  ITEM_CATALOG['leather_tunic'],
+  ITEM_CATALOG['cloth_pants'],
+  ITEM_CATALOG['travel_boots']
+);
 
 const audio = new AudioManager();
 const particles = new ParticleManager();
@@ -435,6 +444,10 @@ function broadcastMyState() {
     isAirborne: player.isAirborne,
     activeCables: player.activeCables,
     spinTimer: player.spinTimer,
+    isLeftAttacking: player.isLeftAttacking,
+    leftAttackProgress: player.leftAttackProgress,
+    isRightAttacking: player.isRightAttacking,
+    rightAttackProgress: player.rightAttackProgress,
     equipment: player.equipment
   };
 
@@ -730,6 +743,48 @@ function handleAttacks() {
   }
 }
 
+function handleBladeAttack(side = 'left') {
+  const angleOffset = side === 'left' ? -0.32 : 0.32;
+  const targets = [dummy, ...network.remotePlayers.values()];
+  const hits = combat.performWeaponAttack(player, targets, { angleOffset });
+
+  for (const hit of hits) {
+    if (hit.target === dummy) {
+      dummy.takeHit(hit.damage, hit.angle, hit.knockback || 0);
+      audio.playSnapBladesSlash();
+      cinematics.addScreenShake(6);
+
+      const label = hit.isCrit ? `CRIT ${side.toUpperCase()}! -${hit.damage} ⚔️` : `BLADE ${side.toUpperCase()}! -${hit.damage}`;
+      particles.spawnComicText(dummy.x, dummy.y - 24, label, hit.isCrit ? '#ff0055' : '#10b981');
+      particles.spawnDashBurst(dummy.x, dummy.y, hit.angle, '#10b981');
+
+      const hitMsg = {
+        type: 'DUMMY_HIT',
+        damage: hit.damage,
+        angle: hit.angle,
+        isCrit: hit.isCrit
+      };
+      if (network.isHost) network.broadcast(hitMsg);
+      else network.sendToHost(hitMsg);
+    } else {
+      for (const [peerId, remote] of network.remotePlayers.entries()) {
+        if (remote === hit.target) {
+          const kx = Math.cos(hit.angle) * hit.knockback;
+          const ky = Math.sin(hit.angle) * hit.knockback;
+
+          const slapMsg = { type: 'SLAP_KNOCKBACK', targetPeerId: peerId, kx, ky };
+          if (network.isHost) network.broadcast(slapMsg);
+          else network.sendToHost(slapMsg);
+
+          audio.playSnapBladesSlash();
+          const effectLabel = hit.isBlocked ? 'BLOCKED!' : `BLADE ${side.toUpperCase()}!`;
+          particles.spawnComicText(remote.x, remote.y - 20, effectLabel, '#10b981');
+        }
+      }
+    }
+  }
+}
+
 function handleOffhandAttack() {
   const targets = [dummy, ...network.remotePlayers.values()];
   const hits = combat.performOffhandAttack(player, targets);
@@ -872,9 +927,16 @@ function gameLoop(now) {
     loot.update(dt);
   }
 
-  // Check Set Bonus
+  // Check Set Bonus & Levi Gear
   const activeSet = checkSetBonus(player.equipment);
-  if (!activeSet || activeSet.id !== 'levi') {
+  const isLeviGearEquipped = (activeSet && activeSet.setKey === 'levi') ||
+    (player.equipment?.weapon?.visual === 'dual_snap_blades') ||
+    (player.equipment?.chest?.visual === 'odm_harness') ||
+    (player.equipment?.helmet?.visual === 'scout_hood') ||
+    (player.equipment?.pants?.visual === 'scout_trousers') ||
+    (player.equipment?.boots?.visual === 'scout_boots');
+
+  if (!isLeviGearEquipped) {
     if (player.isOdmMode) {
       player.isOdmMode = false;
       player.activeCables = [];
@@ -1072,9 +1134,12 @@ function gameLoop(now) {
     broadcastMyState();
   }
 
-  // Left Click: ODM Cable Launch (if in ODM Mode) OR Standard Weapon Attack
+  // Left Click & Right Click Attacks (Left Blade & Right Blade for Levi)
+  const isDualSnapBlades = player.equipment?.weapon?.visual === 'dual_snap_blades';
+
+  // Left Click: ODM Cable Launch (if in ODM Mode) OR Left Blade Attack OR Standard Weapon Attack
   if (input.justPressedLeft && !modalsOpen && !player.isStunned) {
-    if (player.isOdmMode && activeSet?.id === 'levi') {
+    if (player.isOdmMode && isLeviGearEquipped) {
       // Launch high-tension ODM cable towards cursor in world coordinates
       const worldMouseX = (input.mouse.screenX - window.innerWidth / 2) + player.x;
       const worldMouseY = (input.mouse.screenY - window.innerHeight / 2) + player.y;
@@ -1088,6 +1153,13 @@ function gameLoop(now) {
         audio.playShieldLock();
         particles.spawnComicText(player.x, player.y - 32, 'OUT OF GAS! 💨', '#ef4444');
       }
+    } else if (isDualSnapBlades) {
+      // Basic Attack: Left Blade Slice (Left Click)!
+      if (player.triggerLeftAttack()) {
+        audio.playSnapBladesSlash();
+        handleBladeAttack('left');
+        broadcastMyState();
+      }
     } else {
       if (player.triggerAttack()) {
         playWeaponAttackSound(player.equipment?.weapon);
@@ -1097,47 +1169,70 @@ function gameLoop(now) {
     }
   }
 
-  // Right Click Slap / Special Off-hand (gated by triggerSlap cooldown & stun)
+  // Right Click: ODM Cable Launch (if in ODM Mode) OR Right Blade Attack OR Standard Off-hand Slap
   if (input.justPressedRight && !modalsOpen && !player.isBlocking && !player.isStunned) {
-    if (player.triggerSlap()) {
-      const offhandVisual = player.equipment?.offhand?.visual;
-      if (offhandVisual === 'reversal_red') {
-        audio.playRepulsionBurst();
-        cinematics.addScreenShake(6);
-        particles.spawnComicText(
-          player.x + Math.cos(player.angle) * 36,
-          player.y + Math.sin(player.angle) * 36,
-          'REVERSAL RED!',
-          '#ef4444'
-        );
-      } else if (offhandVisual === 'sukuna_hiten') {
-        audio.playFireSpear();
-        cinematics.addScreenShake(5);
-        particles.spawnComicText(
-          player.x + Math.cos(player.angle) * 36,
-          player.y + Math.sin(player.angle) * 36,
-          'FIRE THRUST!',
-          '#f97316'
-        );
-      } else if (offhandVisual === 'tome') {
-        audio.playBarrierHum();
-        particles.spawnComicText(
-          player.x + Math.cos(player.angle) * 32,
-          player.y + Math.sin(player.angle) * 32,
-          'RUNE PULSE!',
-          '#a855f7'
-        );
+    if (player.isOdmMode && isLeviGearEquipped) {
+      // In ODM Mode, Right Click ALSO launches an ODM cable (enables rapid dual cable maneuvering!)
+      const worldMouseX = (input.mouse.screenX - window.innerWidth / 2) + player.x;
+      const worldMouseY = (input.mouse.screenY - window.innerHeight / 2) + player.y;
+
+      const launched = player.fireOdmCable(worldMouseX, worldMouseY, audio, particles);
+      if (launched) {
+        cinematics.addScreenShake(3);
+        player.syncHUD();
+        broadcastMyState();
       } else {
-        audio.playBonk();
-        particles.spawnComicText(
-          player.x + Math.cos(player.angle) * 32,
-          player.y + Math.sin(player.angle) * 32,
-          'BONK!',
-          '#ff0055'
-        );
+        audio.playShieldLock();
+        particles.spawnComicText(player.x, player.y - 32, 'OUT OF GAS! 💨', '#ef4444');
       }
-      handleOffhandAttack();
-      broadcastMyState();
+    } else if (isDualSnapBlades) {
+      // Basic Attack: Right Blade Slice (Right Click)!
+      if (player.triggerRightAttack()) {
+        audio.playSnapBladesSlash();
+        handleBladeAttack('right');
+        broadcastMyState();
+      }
+    } else {
+      if (player.triggerSlap()) {
+        const offhandVisual = player.equipment?.offhand?.visual;
+        if (offhandVisual === 'reversal_red') {
+          audio.playRepulsionBurst();
+          cinematics.addScreenShake(6);
+          particles.spawnComicText(
+            player.x + Math.cos(player.angle) * 36,
+            player.y + Math.sin(player.angle) * 36,
+            'REVERSAL RED!',
+            '#ef4444'
+          );
+        } else if (offhandVisual === 'sukuna_hiten') {
+          audio.playFireSpear();
+          cinematics.addScreenShake(5);
+          particles.spawnComicText(
+            player.x + Math.cos(player.angle) * 36,
+            player.y + Math.sin(player.angle) * 36,
+            'FIRE THRUST!',
+            '#f97316'
+          );
+        } else if (offhandVisual === 'tome') {
+          audio.playBarrierHum();
+          particles.spawnComicText(
+            player.x + Math.cos(player.angle) * 32,
+            player.y + Math.sin(player.angle) * 32,
+            'RUNE PULSE!',
+            '#a855f7'
+          );
+        } else {
+          audio.playBonk();
+          particles.spawnComicText(
+            player.x + Math.cos(player.angle) * 32,
+            player.y + Math.sin(player.angle) * 32,
+            'BONK!',
+            '#ff0055'
+          );
+        }
+        handleOffhandAttack();
+        broadcastMyState();
+      }
     }
   }
 

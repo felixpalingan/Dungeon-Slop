@@ -81,6 +81,19 @@ export class Player {
     this.spinTimer = 0;
     this.lastSliceMap = new Map();
 
+    // Dual Wield independent blade attack animations (Levi Snap Blades)
+    this.isLeftAttacking = false;
+    this.leftAttackDuration = 0.14;
+    this.leftAttackTimer = 0;
+    this.leftAttackProgress = 0;
+    this.leftAttackCooldownTimer = 0;
+
+    this.isRightAttacking = false;
+    this.rightAttackDuration = 0.14;
+    this.rightAttackTimer = 0;
+    this.rightAttackProgress = 0;
+    this.rightAttackCooldownTimer = 0;
+
     // Shield Blocking state
     this.isBlocking = false;
 
@@ -118,6 +131,26 @@ export class Player {
     this.slapTimer = this.slapDuration;
     this.slapCooldownTimer = 0.24;
     this.slapProgress = 0;
+    return true;
+  }
+
+  triggerLeftAttack() {
+    if (this.isStunned || this.isLeftAttacking || this.leftAttackCooldownTimer > 0) return false;
+    this.isLeftAttacking = true;
+    this.leftAttackDuration = 0.14;
+    this.leftAttackTimer = 0.14;
+    this.leftAttackCooldownTimer = 0.16;
+    this.leftAttackProgress = 0;
+    return true;
+  }
+
+  triggerRightAttack() {
+    if (this.isStunned || this.isRightAttacking || this.rightAttackCooldownTimer > 0) return false;
+    this.isRightAttacking = true;
+    this.rightAttackDuration = 0.14;
+    this.rightAttackTimer = 0.14;
+    this.rightAttackCooldownTimer = 0.16;
+    this.rightAttackProgress = 0;
     return true;
   }
 
@@ -361,6 +394,31 @@ export class Player {
       }
     }
 
+    // Dual Blade Attack updates (Levi Left & Right Snap Blades)
+    if (this.isLeftAttacking) {
+      this.leftAttackTimer -= dt;
+      this.leftAttackProgress = 1 - Math.max(0, this.leftAttackTimer / this.leftAttackDuration);
+      if (this.leftAttackTimer <= 0) {
+        this.isLeftAttacking = false;
+        this.leftAttackProgress = 0;
+      }
+    }
+    if (this.leftAttackCooldownTimer > 0) {
+      this.leftAttackCooldownTimer -= dt;
+    }
+
+    if (this.isRightAttacking) {
+      this.rightAttackTimer -= dt;
+      this.rightAttackProgress = 1 - Math.max(0, this.rightAttackTimer / this.rightAttackDuration);
+      if (this.rightAttackTimer <= 0) {
+        this.isRightAttacking = false;
+        this.rightAttackProgress = 0;
+      }
+    }
+    if (this.rightAttackCooldownTimer > 0) {
+      this.rightAttackCooldownTimer -= dt;
+    }
+
     // Update spin timer
     if (this.spinTimer > 0) {
       this.spinTimer -= dt;
@@ -576,7 +634,13 @@ export class Player {
     const gasFill = document.getElementById('hud-gas-fill');
     const gasText = document.getElementById('hud-gas-text');
 
-    const isLeviActive = this.isOdmMode || this.equipment?.weapon?.visual === 'dual_snap_blades' || this.equipment?.chest?.visual === 'odm_harness';
+    const isLeviActive = this.isOdmMode ||
+      this.equipment?.weapon?.visual === 'dual_snap_blades' ||
+      this.equipment?.chest?.visual === 'odm_harness' ||
+      this.equipment?.helmet?.visual === 'scout_hood' ||
+      this.equipment?.pants?.visual === 'scout_trousers' ||
+      this.equipment?.boots?.visual === 'scout_boots';
+
     if (gasContainer) {
       if (isLeviActive) {
         gasContainer.classList.remove('hidden');
@@ -584,7 +648,7 @@ export class Player {
           gasFill.style.width = `${Math.max(0, Math.min(100, (this.odmGas / this.maxOdmGas) * 100))}%`;
         }
         if (gasText) {
-          gasText.textContent = `ODM GAS: ${Math.round(this.odmGas)}% ${this.isOdmMode ? '[ACTIVE]' : '[STANDBY]'}`;
+          gasText.textContent = `💨 ODM GAS: ${Math.round(this.odmGas)}% [Q: ${this.isOdmMode ? 'ACTIVE' : 'OFF'}]`;
         }
       } else {
         gasContainer.classList.add('hidden');

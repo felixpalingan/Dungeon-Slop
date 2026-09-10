@@ -491,12 +491,14 @@ export class Renderer {
       leftHandY = -handDistance;
       leftBladeAngle = 0;
 
-      if (isAttacking && attackProgress > 0 && attackProgress < 1) {
-        const p = attackProgress;
-        const leftCrossArc = Math.PI * 0.48 - p * Math.PI * 1.35;
-        leftHandX = Math.cos(leftCrossArc) * (handDistance + 5);
-        leftHandY = Math.sin(leftCrossArc) * (handDistance + 5);
-        leftBladeAngle = leftCrossArc - Math.PI * 0.35;
+      const isLAttacking = entity.isLeftAttacking;
+      const pL = entity.leftAttackProgress || 0;
+      if (isLAttacking && pL > 0 && pL < 1) {
+        // Left hand slashes inward across from left to right!
+        const leftArc = -Math.PI * 0.45 + pL * (Math.PI * 0.65);
+        leftHandX = Math.cos(leftArc) * (handDistance + 6);
+        leftHandY = Math.sin(leftArc) * (handDistance + 6);
+        leftBladeAngle = leftArc + Math.PI * 0.35;
       }
     } else if (is2H) {
       // Both hands grip the heavy 2-handed weapon!
@@ -644,7 +646,17 @@ export class Renderer {
     let rightHandY = handDistance;
     let swordAngle = 0;
 
-    if (isAttacking && attackProgress > 0 && attackProgress < 1) {
+    if (weapon?.visual === 'dual_snap_blades') {
+      const isRAttacking = entity.isRightAttacking;
+      const pR = entity.rightAttackProgress || 0;
+      if (isRAttacking && pR > 0 && pR < 1) {
+        // Right hand slashes inward across from right to left!
+        const rightArc = Math.PI * 0.45 - pR * (Math.PI * 0.65);
+        rightHandX = Math.cos(rightArc) * (handDistance + 6);
+        rightHandY = Math.sin(rightArc) * (handDistance + 6);
+        swordAngle = rightArc - Math.PI * 0.35;
+      }
+    } else if (isAttacking && attackProgress > 0 && attackProgress < 1) {
       const p = attackProgress;
       if (weapon?.visual === 'lapse_blue') {
         // Gojo: Forward gravitational thrust
@@ -694,12 +706,6 @@ export class Renderer {
         rightHandX = Math.cos(cleaveArc) * (handDistance + 6);
         rightHandY = Math.sin(cleaveArc) * (handDistance + 6);
         swordAngle = cleaveArc + Math.PI * 0.38;
-      } else if (weapon?.visual === 'dual_snap_blades') {
-        // Levi: Rapid alternating dual cross-slashes (X-cuts) with micro-lunges
-        const crossArc = -Math.PI * 0.48 + p * Math.PI * 1.35;
-        rightHandX = Math.cos(crossArc) * (handDistance + 5);
-        rightHandY = Math.sin(crossArc) * (handDistance + 5);
-        swordAngle = crossArc + Math.PI * 0.35;
       } else {
         // Standard sword swing
         const swingArc = -Math.PI * 0.45 + p * Math.PI * (is2H ? 1.4 : 1.1);
@@ -1264,6 +1270,29 @@ export class Renderer {
     ctx.fillRect(-barWidth / 2, 0, barWidth, barHeight);
     ctx.fillStyle = '#00ff88';
     ctx.fillRect(-barWidth / 2, 0, barWidth * ((entity.hp ?? 100) / (entity.maxHp ?? 100)), barHeight);
+
+    // In-world Mini Gas Bar (for Levi ODM Gear)
+    const isLeviActive = entity.isOdmMode ||
+      entity.equipment?.weapon?.visual === 'dual_snap_blades' ||
+      entity.equipment?.chest?.visual === 'odm_harness';
+
+    if (isLeviActive) {
+      const gas = entity.odmGas !== undefined ? entity.odmGas : 100;
+      const gasPct = Math.max(0, Math.min(1, gas / 100));
+
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
+      ctx.fillRect(-barWidth / 2, barHeight + 2, barWidth, 3);
+      ctx.fillStyle = entity.isOdmMode ? '#10b981' : '#34d399';
+      ctx.shadowColor = entity.isOdmMode ? '#10b981' : 'transparent';
+      ctx.shadowBlur = entity.isOdmMode ? 6 : 0;
+      ctx.fillRect(-barWidth / 2, barHeight + 2, barWidth * gasPct, 3);
+      ctx.shadowBlur = 0;
+
+      // Small ODM indicator text
+      ctx.font = '800 7px "JetBrains Mono", monospace';
+      ctx.fillStyle = entity.isOdmMode ? '#10b981' : '#94a3b8';
+      ctx.fillText(entity.isOdmMode ? `ODM ${Math.round(gas)}%` : `GAS ${Math.round(gas)}%`, 0, barHeight + 11);
+    }
     ctx.restore();
   }
 

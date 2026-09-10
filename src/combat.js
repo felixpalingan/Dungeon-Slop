@@ -14,7 +14,7 @@ export class CombatSystem {
    * Executes a weapon attack for an attacker entity.
    * Checks for targets within weapon reach and cleave arc.
    */
-  performWeaponAttack(attacker, targets = []) {
+  performWeaponAttack(attacker, targets = [], options = {}) {
     const weapon = attacker.equipment?.weapon || {
       name: 'Unarmed Fists',
       damage: 10,
@@ -26,6 +26,9 @@ export class CombatSystem {
     let reach = weapon.reach || 55;
     let arcHalfAngle = weapon.hands === 2 ? Math.PI * 0.48 : Math.PI * 0.35;
     let baseDamage = weapon.damage || 15;
+    if (options.damageMultiplier) {
+      baseDamage = Math.round(baseDamage * options.damageMultiplier);
+    }
     if (attacker.isBerserk) {
       baseDamage = Math.round(baseDamage * 2.2); // Berserk Mode: +120% Colossal Damage Boost!
     }
@@ -51,8 +54,8 @@ export class CombatSystem {
       reach = Math.max(reach, 65);
       arcHalfAngle = Math.PI * 0.42;
     } else if (weapon.visual === 'dual_snap_blades') {
-      reach = Math.max(reach, 72);
-      arcHalfAngle = Math.PI * 0.55; // wide dual cross-slash arc
+      reach = Math.max(reach, 70);
+      arcHalfAngle = Math.PI * 0.48;
     }
 
     let hits = [];
@@ -67,9 +70,10 @@ export class CombatSystem {
       // Check distance against attacker radius + weapon reach + target radius
       const maxHitDist = (attacker.radius || 22) + reach + (target.radius || 24);
       if (dist <= maxHitDist) {
-        // Check angle within attack cone facing mouse/angle
+        // Check angle within attack cone facing mouse/angle + optional offset
+        const attackAngle = attacker.angle + (options.angleOffset || 0);
         const angleToTarget = Math.atan2(dy, dx);
-        let angleDiff = angleToTarget - attacker.angle;
+        let angleDiff = angleToTarget - attackAngle;
 
         // Normalize angle difference to [-PI, PI]
         while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
@@ -208,9 +212,39 @@ export class CombatSystem {
    */
   triggerActiveAbility(player, setBonus = null, triggerCinematicCallback = null) {
     const now = performance.now() / 1000;
+
+    // --- LEVI ACKERMAN ODM MODE TOGGLE (Dual Snap Blades, ODM Harness, or Full Set) ---
+    const isLevi = (setBonus && (setBonus.ultimateQ === 'levi_grapple_whirlwind' || setBonus.setKey === 'levi')) ||
+      (player.equipment?.weapon?.visual === 'dual_snap_blades') ||
+      (player.equipment?.chest?.visual === 'odm_harness') ||
+      (player.equipment?.helmet?.visual === 'scout_hood') ||
+      (player.equipment?.pants?.visual === 'scout_trousers') ||
+      (player.equipment?.boots?.visual === 'scout_boots');
+
+    if (isLevi) {
+      // Rapid fluid stance switch debounce (0.2s) - NOT locked by 8.0s ultimate cooldown!
+      if (player.lastOdmToggleTime && now - player.lastOdmToggleTime < 0.2) {
+        return false;
+      }
+      player.lastOdmToggleTime = now;
+      player.isOdmMode = !player.isOdmMode;
+
+      if (player.isOdmMode) {
+        this.audio.playOdmGasHiss();
+        this.particles.spawnComicText(player.x, player.y - 36, 'ODM MODE: ACTIVE! ⚔️', '#10b981');
+        this.particles.spawnDashBurst(player.x, player.y, player.angle + Math.PI, '#ffffff');
+      } else {
+        player.activeCables = [];
+        player.isAirborne = false;
+        this.particles.spawnComicText(player.x, player.y - 36, 'ODM MODE: OFF', '#94a3b8');
+      }
+      player.syncHUD();
+      return true;
+    }
+
     const cooldownDuration = setBonus ? 8.0 : 5.0;
 
-    // Cooldown check
+    // Cooldown check for all other ultimate / active abilities
     if (player.lastAbilityTime && now - player.lastAbilityTime < cooldownDuration) {
       const remaining = (cooldownDuration - (now - player.lastAbilityTime)).toFixed(1);
       this.particles.spawnComicText(player.x, player.y - 30, `COOLDOWN ${remaining}s`, '#94a3b8');
@@ -257,20 +291,6 @@ export class CombatSystem {
         if (triggerCinematicCallback) {
           triggerCinematicCallback('berserker_rage', player);
         }
-        return true;
-      } else if (setBonus.ultimateQ === 'levi_grapple_whirlwind') {
-        // Levi: Toggle ODM Flight & Maneuvering Attack Mode
-        player.isOdmMode = !player.isOdmMode;
-        if (player.isOdmMode) {
-          this.audio.playOdmGasHiss();
-          this.particles.spawnComicText(player.x, player.y - 36, 'ODM MODE: ACTIVE! ⚔️', '#10b981');
-          this.particles.spawnDashBurst(player.x, player.y, player.angle + Math.PI, '#ffffff');
-        } else {
-          player.activeCables = [];
-          player.isAirborne = false;
-          this.particles.spawnComicText(player.x, player.y - 36, 'ODM MODE: OFF', '#94a3b8');
-        }
-        player.syncHUD();
         return true;
       }
     }
