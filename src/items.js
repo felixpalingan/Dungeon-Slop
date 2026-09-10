@@ -53,6 +53,14 @@ export const SET_DEFINITIONS = {
     requiredItems: ['scout_hood', 'odm_harness', 'scout_trousers', 'scout_boots', 'dual_snap_blades'],
     ultimateQ: 'levi_grapple_whirlwind',
     desc: '[Q] Toggles ODM Mode: Left Click shoots maneuvering cables (max 2) with unlimited reach. Pass through enemies with zero collision, slicing and spinning on hit! Gas recharges on landing.'
+  },
+  'david': {
+    name: 'Night City Legend (David Martinez)',
+    anime: 'Cyberpunk: Edgerunners',
+    color: '#00ff88',
+    requiredItems: ['david_kiroshi', 'david_jacket', 'david_pants', 'david_sneakers', 'david_shotgun', 'david_gorilla_arms'],
+    ultimateQ: 'sandevistan_time_dilation',
+    desc: '[Q] Overclocks the military-grade Sandevistan: slows global time to 10% for everyone (monsters, projectiles, players) for 4s, while David moves freely with persistent cyan/lime ghost trails!'
   }
 };
 
@@ -639,5 +647,83 @@ export const ITEM_CATALOG = {
     rollCostReduction: 10,
     visual: 'winged_boots',
     desc: 'Winged boots allowing swift sprint speeds and cheaper dodge rolls.'
+  },
+
+  // --- DAVID MARTINEZ (CYBERPUNK: EDGERUNNERS) SET ---
+  'david_kiroshi': {
+    id: 'david_kiroshi',
+    name: 'Kiroshi Optics Mk. 4',
+    set: 'david',
+    slot: 'helmet',
+    rarity: 'MYTHIC',
+    hp: 30,
+    critChance: 0.25,
+    visual: 'david_kiroshi',
+    desc: 'Military-grade cybernetic optic lens. Grants +25% Critical Strike Chance and tactical target lock-on analysis.'
+  },
+  'david_jacket': {
+    id: 'david_jacket',
+    name: "Gloria's High-Vis EMT Jacket",
+    set: 'david',
+    slot: 'chest',
+    rarity: 'MYTHIC',
+    hp: 45,
+    armor: 14,
+    baseQ: 'overcharge_boost',
+    visual: 'david_jacket',
+    desc: 'Oversized fluorescent yellow EMT jacket with spinal cyberware mounts. Base Q: Overcharge Boost grants +35% sprint speed for 3s.'
+  },
+  'david_pants': {
+    id: 'david_pants',
+    name: 'Streetkid Cargo Pants',
+    set: 'david',
+    slot: 'pants',
+    rarity: 'LEGENDARY',
+    hp: 20,
+    armor: 8,
+    speedBonus: 20,
+    staminaBonus: 15,
+    visual: 'david_pants',
+    desc: 'Loose charcoal cargo trousers with hanging cyber-straps tailored for street-level mobility.'
+  },
+  'david_sneakers': {
+    id: 'david_sneakers',
+    name: 'Chrome Cyber-Sneakers',
+    set: 'david',
+    slot: 'boots',
+    rarity: 'LEGENDARY',
+    speedBonus: 28,
+    rollCostReduction: 12,
+    visual: 'david_sneakers',
+    desc: 'High-top chrome sneakers with glowing neon green soles. Greatly reduces dash roll stamina cost.'
+  },
+  'david_shotgun': {
+    id: 'david_shotgun',
+    name: 'Carnage Shotgun',
+    set: 'david',
+    slot: 'weapon',
+    hands: 1,
+    rarity: 'MYTHIC',
+    damage: 14,
+    pellets: 6,
+    spread: 0.38,
+    maxAmmo: 4,
+    reloadTime: 1.4,
+    speed: 0.45,
+    reach: 180,
+    visual: 'david_shotgun',
+    desc: 'Heavy-duty 4-shell pump shotgun. Left-click fires a devastating 6-pellet buckshot spread. Reloads after 4 shells.'
+  },
+  'david_gorilla_arms': {
+    id: 'david_gorilla_arms',
+    name: 'Gorilla Arms Cyberware',
+    set: 'david',
+    slot: 'offhand',
+    rarity: 'MYTHIC',
+    damageBuff: 20,
+    offhandDamage: 50,
+    armorPenetration: 0.35,
+    visual: 'david_gorilla_arms',
+    desc: 'Hydraulic titanium arm prosthetics. Right-click unleashes a heavy cybernetic piston punch with forward lunge and high knockback.'
   }
 };
