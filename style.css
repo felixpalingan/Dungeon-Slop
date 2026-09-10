@@ -603,6 +603,206 @@ html, body {
   bottom: 20px;
   left: 50%;
   transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  pointer-events: none;
+  z-index: 15;
+}
+
+/* ODM Tactical HUD Overlay (Big Screen Gauge) */
+.odm-tactical-card {
+  width: min(450px, 92vw);
+  background: linear-gradient(180deg, rgba(16, 24, 39, 0.88), rgba(9, 14, 26, 0.95));
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(16, 185, 129, 0.45);
+  border-top: 2px solid rgba(0, 240, 255, 0.85);
+  border-radius: 14px;
+  padding: 10px 18px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.65), 0 0 20px rgba(16, 185, 129, 0.2);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  pointer-events: none;
+}
+
+.odm-tactical-card.hidden {
+  display: none !important;
+}
+
+.odm-tactical-card.low-gas {
+  border-color: rgba(239, 68, 68, 0.85);
+  border-top-color: #ef4444;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.65), 0 0 25px rgba(239, 68, 68, 0.6);
+  animation: odmWarningPulse 0.9s infinite alternate ease-in-out;
+}
+
+@keyframes odmWarningPulse {
+  0% { box-shadow: 0 10px 30px rgba(0,0,0,0.65), 0 0 10px rgba(239, 68, 68, 0.3); }
+  100% { box-shadow: 0 10px 30px rgba(0,0,0,0.65), 0 0 35px rgba(239, 68, 68, 0.85); }
+}
+
+.odm-hud-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.odm-hud-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.odm-hud-icon {
+  font-size: 1.15rem;
+  filter: drop-shadow(0 0 8px rgba(0, 240, 255, 0.7));
+}
+
+.odm-hud-title {
+  font-family: 'Outfit', sans-serif;
+  font-size: 0.88rem;
+  font-weight: 800;
+  letter-spacing: 1.2px;
+  color: #f0f6fc;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+}
+
+.odm-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  transition: all 0.2s ease;
+}
+
+.odm-badge.standby {
+  background: rgba(100, 116, 139, 0.2);
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  color: #94a3b8;
+}
+
+.odm-badge.standby .odm-badge-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #64748b;
+}
+
+.odm-badge.active {
+  background: rgba(16, 185, 129, 0.22);
+  border: 1px solid rgba(16, 185, 129, 0.75);
+  color: #34d399;
+  box-shadow: 0 0 12px rgba(16, 185, 129, 0.45);
+}
+
+.odm-badge.active .odm-badge-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #10b981;
+  box-shadow: 0 0 8px #10b981;
+  animation: badgeDotPulse 1.2s infinite;
+}
+
+@keyframes badgeDotPulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.8); }
+}
+
+/* 10 Discrete Rappel Pips */
+.odm-pips-container {
+  display: grid;
+  grid-template-columns: repeat(10, 1fr);
+  gap: 6px;
+  height: 11px;
+  margin-top: 1px;
+}
+
+.odm-pip {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 3px;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.2s ease-out;
+}
+
+.odm-pip.active {
+  background: linear-gradient(180deg, #34d399, #059669);
+  border-color: #6ee7b7;
+  box-shadow: 0 0 8px rgba(16, 185, 129, 0.75);
+}
+
+.odm-pip.low {
+  background: linear-gradient(180deg, #f87171, #dc2626);
+  border-color: #fca5a5;
+  box-shadow: 0 0 8px rgba(239, 68, 68, 0.85);
+}
+
+/* Continuous Gauge Track */
+.odm-gauge-track {
+  position: relative;
+  height: 24px;
+  background: rgba(5, 10, 18, 0.85);
+  border: 1px solid rgba(16, 185, 129, 0.55);
+  border-radius: 6px;
+  overflow: hidden;
+  box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.7);
+}
+
+.odm-gauge-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #047857 0%, #10b981 50%, #00f0ff 100%);
+  box-shadow: 0 0 16px rgba(0, 240, 255, 0.75);
+  transition: width 0.12s ease-out, background 0.3s ease;
+}
+
+.odm-gauge-track.low .odm-gauge-fill {
+  background: linear-gradient(90deg, #b91c1c 0%, #ef4444 100%);
+  box-shadow: 0 0 16px rgba(239, 68, 68, 0.85);
+}
+
+.odm-gauge-readout {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.8px;
+  color: #ffffff;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.95), 0 0 8px rgba(0, 0, 0, 0.75);
+}
+
+.odm-hud-footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 1px;
+}
+
+.odm-subtext {
+  font-family: 'Outfit', sans-serif;
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: #94a3b8;
+  letter-spacing: 0.5px;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
 }
 
 .controls-hint {

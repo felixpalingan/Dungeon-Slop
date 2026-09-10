@@ -727,5 +727,83 @@ export class Player {
         gasContainer.classList.add('hidden');
       }
     }
+
+    // --- BIG TACTICAL ODM HUD OVERLAY ---
+    const odmHud = document.getElementById('odm-tactical-hud');
+    if (odmHud) {
+      if (isLeviActive) {
+        odmHud.classList.remove('hidden');
+
+        const gasPct = Math.max(0, Math.min(100, (this.odmGas / this.maxOdmGas) * 100));
+        const charges = Math.min(10, Math.floor((this.odmGas + 0.1) / 10));
+        const isLow = charges <= 2;
+
+        // Gauge Fill & Readout
+        const bigFill = document.getElementById('odm-big-gas-fill');
+        const bigText = document.getElementById('odm-big-gas-text');
+        const track = document.getElementById('odm-gauge-track');
+
+        if (bigFill) {
+          bigFill.style.width = `${gasPct}%`;
+        }
+        if (track) {
+          track.classList.toggle('low', isLow);
+        }
+        odmHud.classList.toggle('low-gas', isLow);
+
+        if (bigText) {
+          if (charges === 0) {
+            bigText.textContent = `CRITICAL 0% • 0 / 10 RAPPELS (OUT OF GAS)`;
+          } else {
+            bigText.textContent = `${Math.round(gasPct)}% STEAM • ${charges} / 10 RAPPELS`;
+          }
+        }
+
+        // 10 Discrete Rappel Pips
+        const pipsContainer = document.getElementById('odm-pips-container');
+        if (pipsContainer) {
+          const pips = pipsContainer.querySelectorAll('.odm-pip');
+          pips.forEach((pip, idx) => {
+            const pipNum = idx + 1;
+            const filled = pipNum <= charges;
+            pip.classList.toggle('active', filled);
+            pip.classList.toggle('low', filled && isLow);
+          });
+        }
+
+        // Status Badge
+        const statusBadge = document.getElementById('odm-hud-status-badge');
+        const statusText = document.getElementById('odm-hud-status-text');
+        if (statusBadge && statusText) {
+          if (this.isOdmMode) {
+            statusBadge.className = 'odm-badge active';
+            if (this.activeCables && this.activeCables.length > 0) {
+              statusText.textContent = `[Q] MANEUVERING (${this.activeCables.length} CABLE${this.activeCables.length > 1 ? 'S' : ''})`;
+            } else {
+              statusText.textContent = `[Q] FLIGHT ACTIVE`;
+            }
+          } else {
+            statusBadge.className = 'odm-badge standby';
+            statusText.textContent = `[Q] STANDBY`;
+          }
+        }
+
+        // Footer Subtext
+        const subtext = document.getElementById('odm-hud-subtext');
+        if (subtext) {
+          if (this.activeCables && this.activeCables.length > 0) {
+            subtext.textContent = `FLYING • ZERO COLLISION • SLICES ON ENEMY HIT`;
+          } else if (this.odmGas < this.maxOdmGas && !this.isRolling && !this.isAirborne) {
+            subtext.textContent = `⚡ RECHARGING COMPRESSED STEAM ON GROUND (+60%/s)`;
+          } else if (isLow) {
+            subtext.textContent = `⚠️ PRESSURE CRITICAL! LAND ON FOOT TO REFUEL`;
+          } else {
+            subtext.textContent = `[L-CLICK] FIRE RAPPEL (MAX 2) • TOUCH GROUND TO RECHARGE`;
+          }
+        }
+      } else {
+        odmHud.classList.add('hidden');
+      }
+    }
   }
 }

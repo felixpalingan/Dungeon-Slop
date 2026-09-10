@@ -1279,6 +1279,7 @@ export class Renderer {
     if (isLeviActive) {
       const gas = entity.odmGas !== undefined ? entity.odmGas : 100;
       const gasPct = Math.max(0, Math.min(1, gas / 100));
+      const charges = Math.min(10, Math.floor((gas + 0.1) / 10));
 
       ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
       ctx.fillRect(-barWidth / 2, barHeight + 2, barWidth, 3);
@@ -1291,7 +1292,7 @@ export class Renderer {
       // Small ODM indicator text
       ctx.font = '800 7px "JetBrains Mono", monospace';
       ctx.fillStyle = entity.isOdmMode ? '#10b981' : '#94a3b8';
-      ctx.fillText(entity.isOdmMode ? `ODM ${Math.round(gas)}%` : `GAS ${Math.round(gas)}%`, 0, barHeight + 11);
+      ctx.fillText(entity.isOdmMode ? `ODM ${Math.round(gas)}% (${charges}/10)` : `GAS ${Math.round(gas)}%`, 0, barHeight + 11);
     }
     ctx.restore();
   }

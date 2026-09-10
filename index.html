@@ -172,6 +172,46 @@
       </div>
 
       <div class="hud-bottom-center">
+        <!-- Big Tactical ODM Gas HUD Overlay -->
+        <div id="odm-tactical-hud" class="odm-tactical-card hidden">
+          <div class="odm-hud-header">
+            <div class="odm-hud-title-wrap">
+              <span class="odm-hud-icon">💨</span>
+              <span class="odm-hud-title">ODM STEAM PRESSURE</span>
+            </div>
+            <div id="odm-hud-status-badge" class="odm-badge standby">
+              <span class="odm-badge-dot"></span>
+              <span id="odm-hud-status-text">[Q] STANDBY</span>
+            </div>
+          </div>
+
+          <!-- 10 Discrete Rappel Canister Pips -->
+          <div class="odm-pips-container" id="odm-pips-container">
+            <div class="odm-pip" data-pip="1"></div>
+            <div class="odm-pip" data-pip="2"></div>
+            <div class="odm-pip" data-pip="3"></div>
+            <div class="odm-pip" data-pip="4"></div>
+            <div class="odm-pip" data-pip="5"></div>
+            <div class="odm-pip" data-pip="6"></div>
+            <div class="odm-pip" data-pip="7"></div>
+            <div class="odm-pip" data-pip="8"></div>
+            <div class="odm-pip" data-pip="9"></div>
+            <div class="odm-pip" data-pip="10"></div>
+          </div>
+
+          <!-- Big Continuous Gas Gauge Track -->
+          <div class="odm-gauge-track" id="odm-gauge-track">
+            <div class="odm-gauge-fill" id="odm-big-gas-fill" style="width: 100%;"></div>
+            <div class="odm-gauge-readout">
+              <span id="odm-big-gas-text">100% STEAM • 10 / 10 RAPPELS</span>
+            </div>
+          </div>
+
+          <div class="odm-hud-footer">
+            <span id="odm-hud-subtext" class="odm-subtext">TOUCH GROUND TO RECHARGE • [L-CLICK] LAUNCH CABLE</span>
+          </div>
+        </div>
+
         <div class="controls-hint">
           <span><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> Move</span>
           <span><kbd>SHIFT</kbd> Roll</span>
