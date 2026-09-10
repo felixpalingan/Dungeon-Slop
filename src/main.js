@@ -42,34 +42,34 @@ const groundItems = new Map();
 // Spawn Batch 1 Anime Demo Sets across the lobby!
 const batch1Loot = [
   // Gojo items
-  new GroundLoot(ITEM_CATALOG['gojo_blindfold'], -160, -40),
-  new GroundLoot(ITEM_CATALOG['gojo_tunic'], -120, -40),
-  new GroundLoot(ITEM_CATALOG['gojo_slacks'], -80, -40),
-  new GroundLoot(ITEM_CATALOG['gojo_loafers'], -40, -40),
-  new GroundLoot(ITEM_CATALOG['lapse_blue'], 0, -40),
-  new GroundLoot(ITEM_CATALOG['reversal_red'], 40, -40),
+  new GroundLoot(ITEM_CATALOG['gojo_blindfold'], -160, -40, 'loot_gojo_blindfold'),
+  new GroundLoot(ITEM_CATALOG['gojo_tunic'], -120, -40, 'loot_gojo_tunic'),
+  new GroundLoot(ITEM_CATALOG['gojo_slacks'], -80, -40, 'loot_gojo_slacks'),
+  new GroundLoot(ITEM_CATALOG['gojo_loafers'], -40, -40, 'loot_gojo_loafers'),
+  new GroundLoot(ITEM_CATALOG['lapse_blue'], 0, -40, 'loot_lapse_blue'),
+  new GroundLoot(ITEM_CATALOG['reversal_red'], 40, -40, 'loot_reversal_red'),
 
   // Sukuna items
-  new GroundLoot(ITEM_CATALOG['sukuna_crown'], -160, 20),
-  new GroundLoot(ITEM_CATALOG['sukuna_robe'], -120, 20),
-  new GroundLoot(ITEM_CATALOG['sukuna_hakama'], -80, 20),
-  new GroundLoot(ITEM_CATALOG['sukuna_zori'], -40, 20),
-  new GroundLoot(ITEM_CATALOG['sukuna_kamutoke'], 0, 20),
-  new GroundLoot(ITEM_CATALOG['sukuna_cleaver'], 40, 20),
+  new GroundLoot(ITEM_CATALOG['sukuna_crown'], -160, 20, 'loot_sukuna_crown'),
+  new GroundLoot(ITEM_CATALOG['sukuna_robe'], -120, 20, 'loot_sukuna_robe'),
+  new GroundLoot(ITEM_CATALOG['sukuna_hakama'], -80, 20, 'loot_sukuna_hakama'),
+  new GroundLoot(ITEM_CATALOG['sukuna_zori'], -40, 20, 'loot_sukuna_zori'),
+  new GroundLoot(ITEM_CATALOG['sukuna_kamutoke'], 0, 20, 'loot_sukuna_kamutoke'),
+  new GroundLoot(ITEM_CATALOG['sukuna_cleaver'], 40, 20, 'loot_sukuna_cleaver'),
 
   // Toji items
-  new GroundLoot(ITEM_CATALOG['toji_worm'], 100, -40),
-  new GroundLoot(ITEM_CATALOG['toji_shirt'], 140, -40),
-  new GroundLoot(ITEM_CATALOG['toji_pants'], 180, -40),
-  new GroundLoot(ITEM_CATALOG['toji_slippers'], 220, -40),
-  new GroundLoot(ITEM_CATALOG['inverted_spear_chain'], 260, -40),
+  new GroundLoot(ITEM_CATALOG['toji_worm'], 100, -40, 'loot_toji_worm'),
+  new GroundLoot(ITEM_CATALOG['toji_shirt'], 140, -40, 'loot_toji_shirt'),
+  new GroundLoot(ITEM_CATALOG['toji_pants'], 180, -40, 'loot_toji_pants'),
+  new GroundLoot(ITEM_CATALOG['toji_slippers'], 220, -40, 'loot_toji_slippers'),
+  new GroundLoot(ITEM_CATALOG['inverted_spear_chain'], 260, -40, 'loot_inverted_spear_chain'),
 
   // Guts items
-  new GroundLoot(ITEM_CATALOG['guts_beast_helm'], 100, 20),
-  new GroundLoot(ITEM_CATALOG['guts_berserker_plate'], 140, 20),
-  new GroundLoot(ITEM_CATALOG['guts_greaves'], 180, 20),
-  new GroundLoot(ITEM_CATALOG['guts_sollerets'], 220, 20),
-  new GroundLoot(ITEM_CATALOG['dragon_slayer'], 260, 20)
+  new GroundLoot(ITEM_CATALOG['guts_beast_helm'], 100, 20, 'loot_guts_beast_helm'),
+  new GroundLoot(ITEM_CATALOG['guts_berserker_plate'], 140, 20, 'loot_guts_berserker_plate'),
+  new GroundLoot(ITEM_CATALOG['guts_greaves'], 180, 20, 'loot_guts_greaves'),
+  new GroundLoot(ITEM_CATALOG['guts_sollerets'], 220, 20, 'loot_guts_sollerets'),
+  new GroundLoot(ITEM_CATALOG['dragon_slayer'], 260, 20, 'loot_dragon_slayer')
 ];
 
 batch1Loot.forEach((loot) => groundItems.set(loot.id, loot));
@@ -434,21 +434,58 @@ function broadcastMyState() {
   }
 }
 
+// Universal Comic Text Broadcast Hook (Damage numbers, skills, stuns, dodges to all clients)
+particles.onComicTextSpawned = (x, y, text, color) => {
+  const comicMsg = { type: 'COMIC_TEXT', x, y, text, color };
+  if (network.isHost) network.broadcast(comicMsg);
+  else network.sendToHost(comicMsg);
+};
+
+// Combat Automaton / Training Dummy Callbacks
+dummy.onShoot = (proj) => {
+  cinematics.projectiles.push(proj);
+  audio.playLightningDagger();
+  particles.spawnComicText(dummy.x, dummy.y - 32, 'ENERGY BLAST! 💥', '#f59e0b');
+  const shootMsg = { type: 'BOT_SHOOT', proj: { ...proj, caster: null } };
+  if (network.isHost) network.broadcast(shootMsg);
+  else network.sendToHost(shootMsg);
+};
+
+dummy.onMeleeHit = (target, dmg, angle) => {
+  if (target === player) {
+    const res = player.takeDamage(dmg, angle, 480);
+    if (res) {
+      audio.playBonk();
+      cinematics.addScreenShake(8);
+      particles.spawnComicText(player.x, player.y - 28, res.isBlocked ? 'BLOCKED! 🛡️' : `-${res.damage}`, res.isBlocked ? '#38bdf8' : '#ef4444');
+      broadcastMyState();
+    }
+  }
+};
+
 network.onPlayerJoined = () => {
   updatePartyRoster();
   broadcastMyState();
 
-  // If host, sync all ground loot to newly joined player
+  // If host, sync all ground loot and bot mode to newly joined player
   if (network.isHost) {
+    const lootList = [];
     for (const [id, loot] of groundItems.entries()) {
-      network.broadcast({
-        type: 'LOOT_SPAWNED',
+      lootList.push({
         id: loot.id,
         item: loot.item,
         x: loot.x,
         y: loot.y
       });
     }
+    network.broadcast({
+      type: 'FULL_LOOT_SYNC',
+      items: lootList
+    });
+    network.broadcast({
+      type: 'BOT_MODE_CHANGED',
+      mode: dummy.mode
+    });
   }
 };
 
@@ -514,6 +551,25 @@ network.onMessageReceived = (fromPeerId, msg) => {
     audio.playBonk();
   } else if (msg.type === 'LOOT_PICKED_UP') {
     groundItems.delete(msg.id);
+  } else if (msg.type === 'FULL_LOOT_SYNC') {
+    groundItems.clear();
+    for (const lootData of msg.items) {
+      const dropped = new GroundLoot(lootData.item, lootData.x, lootData.y, lootData.id);
+      groundItems.set(dropped.id, dropped);
+    }
+  } else if (msg.type === 'COMIC_TEXT') {
+    particles.spawnComicText(msg.x, msg.y, msg.text, msg.color, false);
+  } else if (msg.type === 'BOT_MODE_CHANGED') {
+    dummy.setMode(msg.mode);
+    particles.spawnComicText(dummy.x, dummy.y - 36, `BOT: ${msg.mode}!`, '#fde047', false);
+  } else if (msg.type === 'BOT_SHOOT') {
+    if (!network.isHost) {
+      cinematics.projectiles.push({
+        ...msg.proj,
+        caster: dummy
+      });
+      audio.playLightningDagger();
+    }
   }
 };
 
@@ -740,7 +796,7 @@ function gameLoop(now) {
 
   // 1. Update entities
   player.update(dt, input, dungeonBounds);
-  dummy.update(dt);
+  dummy.update(dt, [player, ...network.remotePlayers.values()]);
   readyCircle.update(dt, player, network.remotePlayers);
   wardrobeStation.update(dt);
   player.syncHUD();
@@ -753,11 +809,28 @@ function gameLoop(now) {
   // Check Set Bonus
   const activeSet = checkSetBonus(player.equipment);
 
-  // Update Cinematics & Projectiles (collision with training dummy and remote peers)
-  const cinematicTargets = [dummy, ...network.remotePlayers.values()];
+  // Update Cinematics & Projectiles (collision with training dummy, player, and remote peers)
+  const cinematicTargets = [dummy, player, ...network.remotePlayers.values()];
   cinematics.update(dt, cinematicTargets, (target, proj) => {
-    if (target === player) return;
+    if (target === player) {
+      if (proj.type === 'bot_energy_orb' || proj.caster === dummy) {
+        const res = player.takeDamage(proj.damage || 22, Math.atan2(proj.vy || 0, proj.vx || 0), 450);
+        if (res) {
+          audio.playBonk();
+          cinematics.addScreenShake(6);
+          particles.spawnComicText(player.x, player.y - 28, res.isBlocked ? 'BLOCKED! 🛡️' : `-${res.damage}`, res.isBlocked ? '#38bdf8' : '#ef4444');
+          broadcastMyState();
+        }
+      }
+      return;
+    }
     if (target === dummy) {
+      if (proj.type === 'limitless_repulsion') {
+        dummy.takeHit(proj.damage, proj.angle, proj.knockback);
+        audio.playRepulsionBurst();
+        particles.spawnComicText(dummy.x, dummy.y - 28, `REPULSED! -${proj.damage}`, '#00f0ff');
+        return;
+      }
       dummy.takeHit(proj.damage, Math.atan2(proj.vy || 0, proj.vx || 0), proj.isStun ? 0 : 350);
       if (proj.isStun) {
         dummy.applyStun(proj.stunDuration || 2.5);
@@ -791,6 +864,19 @@ function gameLoop(now) {
       }
     }
   });
+
+  // [T] Key: Cycle Combat Bot / Training Dummy Mode
+  if (input.justPressedT && !modalsOpen) {
+    const distToDummy = Math.hypot(player.x - dummy.x, player.y - dummy.y);
+    if (distToDummy <= 220) {
+      const newMode = dummy.cycleMode();
+      audio.playHammerSmash();
+      particles.spawnComicText(dummy.x, dummy.y - 36, `BOT: ${newMode}!`, '#fde047');
+      const modeMsg = { type: 'BOT_MODE_CHANGED', mode: newMode };
+      if (network.isHost) network.broadcast(modeMsg);
+      else network.sendToHost(modeMsg);
+    }
+  }
 
   // [E] Key interactions (Pick up loot OR Open Mirror)
   if (input.justPressedE && !modalsOpen) {
@@ -895,8 +981,8 @@ function gameLoop(now) {
     loot.draw(renderer.ctx, loot.isNear(player));
   }
 
-  // Training Dummy
-  dummy.draw(renderer.ctx);
+  // Training Dummy / Combat Automaton
+  dummy.draw(renderer.ctx, Math.hypot(player.x - dummy.x, player.y - dummy.y) <= 180);
 
   // Dash after-images & particles
   renderer.drawAfterImages(player.afterImages);

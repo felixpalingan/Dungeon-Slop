@@ -178,6 +178,19 @@ export class CinematicManager {
         damage: 140,
         life: 0.45
       });
+    } else if (type === 'limitless_barrier') {
+      // Gojo's Base Q Limitless Barrier (Mugen): Traps incoming projectiles in suspended space
+      this.activeCinematics.push({
+        type: 'limitless_barrier',
+        caster: player,
+        isRemote: !!isRemote,
+        timer: 3.5,
+        duration: 3.5,
+        radius: 130,
+        trappedProjectiles: [],
+        hasRepelled: false
+      });
+      this.addScreenShake(6);
     }
   }
 
@@ -225,6 +238,90 @@ export class CinematicManager {
                   damage: 55,
                   angle: Math.atan2(dy, dx),
                   knockback: 450
+                });
+              }
+            }
+          }
+        }
+      }
+
+      // Gojo's Limitless Infinity Barrier: Traps nearby projectiles and blasts them outward upon expiration
+      if (c.type === 'limitless_barrier') {
+        const posX = c.caster ? c.caster.x : c.x;
+        const posY = c.caster ? c.caster.y : c.y;
+
+        // Trap any active projectiles within barrier radius!
+        for (const proj of this.projectiles) {
+          if (proj.trappedBy === c.caster) continue;
+          if (proj.caster === c.caster && proj.isRepelled) continue;
+
+          const dx = proj.x - posX;
+          const dy = proj.y - posY;
+          const dist = Math.hypot(dx, dy);
+          if (dist <= (c.radius || 130)) {
+            proj.trappedBy = c.caster;
+            proj.trappedDist = Math.max(36, dist);
+            proj.trappedAngle = Math.atan2(dy, dx);
+            proj.originalSpeed = Math.hypot(proj.vx, proj.vy) || 600;
+            proj.vx = 0;
+            proj.vy = 0;
+            proj.life = Math.max(proj.life, c.timer + 1.2);
+            if (!c.trappedProjectiles.includes(proj)) {
+              c.trappedProjectiles.push(proj);
+            }
+          }
+        }
+
+        // Orbit and freeze trapped projectiles around Gojo
+        for (const proj of c.trappedProjectiles) {
+          if (proj.trappedBy === c.caster) {
+            proj.trappedAngle = (proj.trappedAngle || 0) + dt * 1.5;
+            proj.x = posX + Math.cos(proj.trappedAngle) * (proj.trappedDist || 70);
+            proj.y = posY + Math.sin(proj.trappedAngle) * (proj.trappedDist || 70);
+            proj.vx = 0;
+            proj.vy = 0;
+          }
+        }
+
+        // When the barrier expires -> VIOLENT LIMITLESS REPULSION BLAST!
+        if (c.timer <= 0.05 && !c.hasRepelled) {
+          c.hasRepelled = true;
+          this.addScreenShake(18);
+          if (c.caster) {
+            c.caster.isInvulnerable = false;
+            c.caster.isLimitlessBarrier = false;
+            c.caster.currentSpeed = c.caster.baseSpeed;
+          }
+
+          // Launch all trapped projectiles outward away from Gojo
+          for (const proj of c.trappedProjectiles) {
+            const outAngle = Math.atan2(proj.y - posY, proj.x - posX);
+            const repelSpeed = Math.max(1050, (proj.originalSpeed || 600) * 1.6);
+            proj.vx = Math.cos(outAngle) * repelSpeed;
+            proj.vy = Math.sin(outAngle) * repelSpeed;
+            proj.angle = outAngle;
+            proj.caster = c.caster;
+            proj.damage = Math.round((proj.damage || 45) * 1.65);
+            proj.life = 1.2;
+            proj.trappedBy = null;
+            proj.hasHit = false;
+            proj.isRepelled = true;
+            proj.isRemote = c.isRemote;
+          }
+
+          // Physical shockwave on nearby enemies/dummies/players
+          if (!c.isRemote && onHitCallback) {
+            for (const target of targets) {
+              if (!target || target === c.caster) continue;
+              const dx = target.x - posX;
+              const dy = target.y - posY;
+              const dist = Math.hypot(dx, dy);
+              if (dist <= 165) {
+                onHitCallback(target, {
+                  type: 'limitless_repulsion',
+                  damage: 75,
+                  angle: Math.atan2(dy, dx),
+                  knockback: 1050
                 });
               }
             }
@@ -375,6 +472,29 @@ export class CinematicManager {
         ctx.beginPath();
         ctx.arc(0, 0, proj.radius * 0.65, -Math.PI * 0.45, Math.PI * 0.45);
         ctx.stroke();
+      } else if (proj.type === 'bot_energy_orb') {
+        // Glowing orange-gold arcane energy orb from Combat Bot
+        ctx.fillStyle = '#f59e0b';
+        ctx.shadowColor = '#fbbf24';
+        ctx.shadowBlur = 18;
+        ctx.beginPath();
+        ctx.arc(0, 0, proj.radius || 16, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Core spark
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(0, 0, (proj.radius || 16) * 0.45, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Trapped in Infinity visual ring
+        if (proj.trappedBy) {
+          ctx.strokeStyle = '#00f0ff';
+          ctx.lineWidth = 2.5;
+          ctx.beginPath();
+          ctx.arc(0, 0, (proj.radius || 16) + 8, 0, Math.PI * 2);
+          ctx.stroke();
+        }
       }
 
       ctx.restore();
@@ -419,6 +539,37 @@ export class CinematicManager {
         ctx.beginPath();
         ctx.arc(tipX, tipY, 8, 0, Math.PI * 2);
         ctx.fill();
+
+        ctx.restore();
+      } else if (c.type === 'limitless_barrier') {
+        // Gojo's Limitless Spatial Distortion field
+        const posX = c.caster ? c.caster.x : c.x;
+        const posY = c.caster ? c.caster.y : c.y;
+        const progress = 1 - c.timer / c.duration;
+
+        ctx.save();
+        ctx.translate(posX, posY);
+
+        const pulse = Math.sin(Date.now() * 0.012) * 5;
+        const barR = (c.radius || 130) + pulse;
+
+        // Outer glowing cyan barrier ring
+        ctx.strokeStyle = 'rgba(0, 240, 255, 0.8)';
+        ctx.shadowColor = '#00f0ff';
+        ctx.shadowBlur = 24;
+        ctx.lineWidth = 3.5;
+        ctx.beginPath();
+        ctx.arc(0, 0, barR, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // Inner counter-rotating dashed spatial ring
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.55)';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([10, 10]);
+        ctx.beginPath();
+        ctx.arc(0, 0, barR * 0.72, -progress * 5, -progress * 5 + Math.PI * 2);
+        ctx.stroke();
+        ctx.setLineDash([]);
 
         ctx.restore();
       }

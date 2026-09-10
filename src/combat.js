@@ -262,16 +262,17 @@ export class CombatSystem {
     if (!chest) return false;
 
     if (chest.baseQ === 'limitless_barrier' || chest.visual === 'gojo_tunic') {
-      // Limitless Barrier: 3.5s repulsion force field & speed buff
+      // Limitless Barrier (Mugen): 3.5s infinity field that traps projectiles and violently deflects them
       player.isInvulnerable = true;
+      player.isLimitlessBarrier = true;
+      player.limitlessTimer = 3.5;
       player.currentSpeed = player.baseSpeed * 1.45;
-      this.particles.spawnComicText(player.x, player.y - 32, 'INFINITY BARRIER!', '#00f0ff');
+      this.particles.spawnComicText(player.x, player.y - 32, 'INFINITY BARRIER! 🌀', '#00f0ff');
       this.particles.spawnDashBurst(player.x, player.y, 0, '#00f0ff');
       this.audio.playBarrierHum();
-      setTimeout(() => {
-        player.isInvulnerable = false;
-        player.currentSpeed = player.baseSpeed;
-      }, 3500);
+      if (triggerCinematicCallback) {
+        triggerCinematicCallback('limitless_barrier', player);
+      }
     } else if (chest.baseQ === 'dismantle' || chest.visual === 'sukuna_robe') {
       // Dismantle: 3 rapid cursed razor slashes
       this.audio.playDismantleCuts();

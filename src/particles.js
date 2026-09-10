@@ -7,12 +7,13 @@ export class ParticleManager {
   constructor() {
     this.particles = [];
     this.comicTexts = [];
+    this.onComicTextSpawned = null;
   }
 
   /**
    * Spawns floating comic text (e.g. 'DODGE!', 'SWOOSH!', 'BONK!', 'COOLDOWN 3.2s')
    */
-  spawnComicText(x, y, text, color = '#ffea00') {
+  spawnComicText(x, y, text, color = '#ffea00', broadcast = true) {
     const isCooldown = text.includes('COOLDOWN');
     if (isCooldown) {
       // Clear any previous cooldown indicators so they never overlap into an unreadable mess
@@ -31,6 +32,10 @@ export class ParticleManager {
       rotation: isCooldown ? 0 : (Math.random() - 0.5) * 0.35,
       life: isCooldown ? 0.9 : 0.75
     });
+
+    if (broadcast && !isCooldown && this.onComicTextSpawned) {
+      this.onComicTextSpawned(x, y, text, color);
+    }
   }
 
   /**

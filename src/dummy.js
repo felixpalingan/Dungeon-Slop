@@ -1,6 +1,10 @@
 /**
- * Training Dummy entity for the pre-game lobby
- * Tracks DPS, total damage taken, wobble animation, and comic popups.
+ * Training Dummy / Combat Automaton entity for Dungeon Slop lobby.
+ * Features 3 interactive combat modes:
+ * - PASSIVE: Harmless DPS testing punching bag
+ * - SHOOTER: Arcane turret that aims and fires energy orbs (tests dodging, blocking, and Gojo's Infinity trap)
+ * - BRAWLER: Aggressive sparring partner that closes distance and swings heavy melee strikes
+ * Mode can be cycled via [T] key or network command.
  */
 
 export class Dummy {
@@ -13,7 +17,7 @@ export class Dummy {
     this.offsetY = 0;
     this.offsetVx = 0;
     this.offsetVy = 0;
-    this.radius = 24;
+    this.radius = 26;
     this.wobbleAngle = 0;
     this.wobbleVelocity = 0;
     this.totalDamage = 0;
@@ -23,6 +27,38 @@ export class Dummy {
     this.dpsWindow = []; // { time, damage }
     this.isStunned = false;
     this.stunTimer = 0;
+
+    // Combat Bot Modes: 'PASSIVE', 'SHOOTER', 'BRAWLER'
+    this.mode = 'PASSIVE';
+    this.attackTimer = 0;
+    this.isChargingAttack = false;
+    this.aimAngle = 0;
+    this.targetPlayer = null;
+
+    // Callbacks for projectile emission and melee hit
+    this.onShoot = null;
+    this.onMeleeHit = null;
+  }
+
+  cycleMode() {
+    if (this.mode === 'PASSIVE') {
+      this.mode = 'SHOOTER';
+    } else if (this.mode === 'SHOOTER') {
+      this.mode = 'BRAWLER';
+    } else {
+      this.mode = 'PASSIVE';
+    }
+    this.attackTimer = 0;
+    this.isChargingAttack = false;
+    return this.mode;
+  }
+
+  setMode(newMode) {
+    if (['PASSIVE', 'SHOOTER', 'BRAWLER'].includes(newMode)) {
+      this.mode = newMode;
+      this.attackTimer = 0;
+      this.isChargingAttack = false;
+    }
   }
 
   takeHit(damage = 10, hitAngle = 0, knockback = 0) {
@@ -33,7 +69,7 @@ export class Dummy {
     // Apply wobble impulse perpendicular to hit angle
     this.wobbleVelocity = (Math.random() > 0.5 ? 1 : -1) * (damage * 0.08);
 
-    // Physical displacement impulse (negative knockback pulls inward e.g. Gojo Blue)
+    // Physical displacement impulse
     if (knockback !== 0) {
       this.offsetVx += Math.cos(hitAngle) * knockback * 0.35;
       this.offsetVy += Math.sin(hitAngle) * knockback * 0.35;
@@ -57,9 +93,10 @@ export class Dummy {
   applyStun(duration = 2.5) {
     this.isStunned = true;
     this.stunTimer = Math.max(this.stunTimer, duration);
+    this.isChargingAttack = false;
   }
 
-  update(dt) {
+  update(dt, players = []) {
     const now = performance.now() / 1000;
 
     // Update stun
@@ -69,6 +106,78 @@ export class Dummy {
         this.isStunned = false;
         this.stunTimer = 0;
       }
+    }
+
+    // Find nearest valid target player
+    let nearestTarget = null;
+    let nearestDist = Infinity;
+    for (const p of players) {
+      if (!p) continue;
+      const d = Math.hypot(p.x - this.x, p.y - this.y);
+      if (d < nearestDist) {
+        nearestDist = d;
+        nearestTarget = p;
+      }
+    }
+    this.targetPlayer = nearestTarget;
+
+    // Update combat AI if not stunned
+    if (!this.isStunned && nearestTarget) {
+      const dx = nearestTarget.x - this.x;
+      const dy = nearestTarget.y - this.y;
+      this.aimAngle = Math.atan2(dy, dx);
+
+      if (this.mode === 'SHOOTER') {
+        // SHOOTER MODE: Targets player and shoots glowing energy orbs every 2.4 seconds
+        this.attackTimer += dt;
+        this.isChargingAttack = this.attackTimer >= 1.4;
+
+        if (this.attackTimer >= 2.4) {
+          this.attackTimer = 0;
+          this.isChargingAttack = false;
+          if (this.onShoot) {
+            this.onShoot({
+              type: 'bot_energy_orb',
+              caster: this,
+              x: this.x + Math.cos(this.aimAngle) * 32,
+              y: this.y + Math.sin(this.aimAngle) * 32,
+              vx: Math.cos(this.aimAngle) * 580,
+              vy: Math.sin(this.aimAngle) * 580,
+              radius: 16,
+              damage: 22,
+              life: 2.2,
+              angle: this.aimAngle,
+              color: '#f59e0b'
+            });
+          }
+        }
+      } else if (this.mode === 'BRAWLER') {
+        // BRAWLER MODE: Chases player and strikes within 65px every 1.7 seconds
+        if (nearestDist > 55) {
+          const moveSpeed = 160;
+          this.baseX += Math.cos(this.aimAngle) * moveSpeed * dt;
+          this.baseY += Math.sin(this.aimAngle) * moveSpeed * dt;
+          // Constrain within dungeon arena
+          this.baseX = Math.max(-480, Math.min(480, this.baseX));
+          this.baseY = Math.max(-480, Math.min(480, this.baseY));
+        }
+
+        this.attackTimer += dt;
+        this.isChargingAttack = this.attackTimer >= 1.1 && nearestDist <= 90;
+
+        if (this.attackTimer >= 1.7) {
+          this.attackTimer = 0;
+          this.isChargingAttack = false;
+          if (nearestDist <= 75 && this.onMeleeHit) {
+            this.onMeleeHit(nearestTarget, 18, this.aimAngle);
+          }
+        }
+      } else {
+        this.attackTimer = 0;
+        this.isChargingAttack = false;
+      }
+    } else {
+      this.isChargingAttack = false;
     }
 
     // Damped spring physics for wobble animation
@@ -94,7 +203,7 @@ export class Dummy {
     this.dps = this.dpsWindow.length > 0 ? Math.round(sumDamage / 3) : 0;
   }
 
-  draw(ctx) {
+  draw(ctx, isPlayerNearby = false) {
     ctx.save();
     ctx.translate(this.x, this.y);
 
@@ -104,48 +213,92 @@ export class Dummy {
     ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
     ctx.fill();
 
+    // Aiming laser guide line if charging a shot in SHOOTER mode
+    if (this.mode === 'SHOOTER' && this.isChargingAttack && !this.isStunned) {
+      ctx.save();
+      ctx.strokeStyle = 'rgba(239, 68, 68, 0.65)';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([6, 6]);
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(Math.cos(this.aimAngle) * 450, Math.sin(this.aimAngle) * 450);
+      ctx.stroke();
+      ctx.restore();
+    }
+
     // Rotate with wobble physics
     ctx.rotate(this.wobbleAngle);
 
     // Wooden post base
-    ctx.fillStyle = '#78350f';
-    ctx.strokeStyle = '#451a03';
+    ctx.fillStyle = this.mode === 'BRAWLER' ? '#334155' : '#78350f';
+    ctx.strokeStyle = this.mode === 'BRAWLER' ? '#0f172a' : '#451a03';
     ctx.lineWidth = 2;
     ctx.fillRect(-6, -this.radius, 12, this.radius * 2);
     ctx.strokeRect(-6, -this.radius, 12, this.radius * 2);
 
-    // Straw body sack
-    ctx.fillStyle = '#d97706';
+    // Body: Straw or Iron Automaton Plate
+    if (this.mode === 'BRAWLER') {
+      ctx.fillStyle = '#475569';
+      ctx.strokeStyle = '#ef4444';
+    } else if (this.mode === 'SHOOTER') {
+      ctx.fillStyle = '#b45309';
+      ctx.strokeStyle = '#f59e0b';
+    } else {
+      ctx.fillStyle = '#d97706';
+      ctx.strokeStyle = '#92400e';
+    }
+
     ctx.beginPath();
     ctx.ellipse(0, 0, this.radius, this.radius * 1.15, 0, 0, Math.PI * 2);
     ctx.fill();
-    ctx.strokeStyle = '#92400e';
     ctx.lineWidth = 3;
     ctx.stroke();
 
-    // Cross-stitching target on dummy chest
-    ctx.strokeStyle = '#ef4444';
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.moveTo(-10, 0);
-    ctx.lineTo(10, 0);
-    ctx.moveTo(0, -10);
-    ctx.lineTo(0, 10);
-    ctx.stroke();
+    // Spiked pauldrons if Brawler
+    if (this.mode === 'BRAWLER') {
+      ctx.fillStyle = '#1e293b';
+      ctx.fillRect(-this.radius - 4, -8, 8, 16);
+      ctx.fillRect(this.radius - 4, -8, 8, 16);
+    }
 
-    // Bullseye outer ring
-    ctx.beginPath();
-    ctx.arc(0, 0, 12, 0, Math.PI * 2);
-    ctx.strokeStyle = '#ef4444';
-    ctx.lineWidth = 2;
-    ctx.stroke();
+    // Cross-stitching target or glowing core
+    if (this.mode === 'SHOOTER') {
+      ctx.beginPath();
+      ctx.arc(0, 0, 10, 0, Math.PI * 2);
+      ctx.fillStyle = '#f59e0b';
+      ctx.shadowColor = '#fbbf24';
+      ctx.shadowBlur = this.isChargingAttack ? 18 : 6;
+      ctx.fill();
+      ctx.shadowBlur = 0;
+    } else {
+      ctx.strokeStyle = '#ef4444';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(-10, 0);
+      ctx.lineTo(10, 0);
+      ctx.moveTo(0, -10);
+      ctx.lineTo(0, 10);
+      ctx.stroke();
+    }
 
-    // Straw dummy head
-    ctx.fillStyle = '#b45309';
+    // Head
+    ctx.fillStyle = this.mode === 'BRAWLER' ? '#1e293b' : '#b45309';
     ctx.beginPath();
     ctx.arc(0, -this.radius - 8, 12, 0, Math.PI * 2);
     ctx.fill();
-    ctx.strokeStyle = '#78350f';
+    ctx.strokeStyle = this.mode === 'BRAWLER' ? '#ef4444' : '#78350f';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // Glowing Eyes
+    const eyeColor = this.mode === 'BRAWLER' ? '#ef4444' : (this.mode === 'SHOOTER' ? '#f59e0b' : '#38bdf8');
+    ctx.fillStyle = eyeColor;
+    ctx.shadowColor = eyeColor;
+    ctx.shadowBlur = 8;
+    ctx.fillRect(-4, -this.radius - 10, 3, 3);
+    ctx.fillRect(1, -this.radius - 10, 3, 3);
+    ctx.shadowBlur = 0;
+
     // Stunned spinning stars over head
     if (this.isStunned) {
       const starTime = performance.now() * 0.006;
@@ -165,25 +318,44 @@ export class Dummy {
 
     ctx.restore();
 
-    // Floating DPS and damage stats above dummy
+    // Floating Mode and DPS UI above dummy
     ctx.save();
     ctx.translate(this.x, this.y - this.radius - 32);
 
-    ctx.font = '800 13px "Outfit", sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillStyle = '#ffb800';
-    ctx.shadowColor = 'rgba(0,0,0,0.8)';
-    ctx.shadowBlur = 4;
-    ctx.fillText('TRAINING DUMMY', 0, -12);
+    // Mode Pill Badge
+    let modeBg = 'rgba(34, 197, 94, 0.85)';
+    let modeText = 'MODE: PASSIVE';
+    if (this.mode === 'SHOOTER') {
+      modeBg = 'rgba(245, 158, 11, 0.9)';
+      modeText = 'MODE: SHOOTER 🏹';
+    } else if (this.mode === 'BRAWLER') {
+      modeBg = 'rgba(239, 68, 68, 0.9)';
+      modeText = 'MODE: BRAWLER ⚔️';
+    }
 
-    if (this.dps > 0) {
+    ctx.font = '800 11px "Outfit", sans-serif';
+    ctx.textAlign = 'center';
+    const textWidth = ctx.measureText(modeText).width;
+    ctx.fillStyle = modeBg;
+    ctx.beginPath();
+    ctx.roundRect(-textWidth / 2 - 8, -26, textWidth + 16, 18, [9]);
+    ctx.fill();
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(modeText, 0, -13);
+
+    // Subtitle / Prompt
+    if (isPlayerNearby) {
+      ctx.font = '700 10px "Outfit", sans-serif';
+      ctx.fillStyle = '#fde047';
+      ctx.fillText('[T] CHANGE MODE', 0, -2);
+    } else if (this.dps > 0) {
       ctx.font = '700 11px "JetBrains Mono", monospace';
       ctx.fillStyle = '#00ff88';
-      ctx.fillText(`${this.dps} DPS (${this.totalDamage} Total)`, 0, 2);
+      ctx.fillText(`${this.dps} DPS (${this.totalDamage} Total)`, 0, -2);
     } else {
       ctx.font = '500 10px "Outfit", sans-serif';
-      ctx.fillStyle = '#a0aec0';
-      ctx.fillText('Smack me to test damage!', 0, 2);
+      ctx.fillStyle = '#94a3b8';
+      ctx.fillText('Smack or Press [T]', 0, -2);
     }
 
     ctx.restore();

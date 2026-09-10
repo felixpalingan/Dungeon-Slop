@@ -61,6 +61,10 @@ export class Player {
     this.isBerserk = false;
     this.berserkTimer = 0;
 
+    // Gojo Limitless Mugen Barrier state (Base Q)
+    this.isLimitlessBarrier = false;
+    this.limitlessTimer = 0;
+
     // Lunge momentum physics (e.g. Spartan Kick forward thrust)
     this.lungeTimer = 0;
     this.lungeDuration = 0;
@@ -195,11 +199,28 @@ export class Player {
       if (item.rollCostReduction) rollCostReduction += item.rollCostReduction;
     }
 
+    const oldMaxHp = this.maxHp || 100;
+    const hpRatio = oldMaxHp > 0 ? (this.hp / oldMaxHp) : 1.0;
     this.maxHp = 100 + bonusHp;
-    this.hp = Math.min(this.hp, this.maxHp);
+    this.hp = Math.round(this.maxHp * Math.min(1.0, Math.max(0, hpRatio)));
     this.baseSpeed = 260 + bonusSpeed;
     this.staminaRegen = 32 + bonusStaminaRegen;
     this.rollCost = Math.max(15, 35 - rollCostReduction);
+  }
+
+  takeDamage(amount, angle = 0, knockback = 0) {
+    if (this.isInvulnerable || this.isRolling) return false;
+    let finalDamage = amount;
+    const isBlocked = this.isBlocking;
+    if (isBlocked) {
+      const mitigation = this.equipment?.offhand?.blockMitigation || 0.6;
+      finalDamage = Math.max(1, Math.round(amount * (1 - mitigation)));
+    }
+    this.hp = Math.max(1, this.hp - finalDamage);
+    if (knockback > 0) {
+      this.applyKnockback(Math.cos(angle) * knockback, Math.sin(angle) * knockback);
+    }
+    return { damage: finalDamage, isBlocked };
   }
 
   update(dt, input, bounds = { minX: -580, minY: -580, maxX: 580, maxY: 580 }) {
@@ -223,6 +244,17 @@ export class Player {
         this.isBerserk = false;
         this.isInvulnerable = false;
         this.berserkTimer = 0;
+        this.currentSpeed = this.baseSpeed;
+      }
+    }
+
+    // Gojo Limitless Barrier (Mugen) countdown
+    if (this.isLimitlessBarrier) {
+      this.limitlessTimer -= dt;
+      if (this.limitlessTimer <= 0) {
+        this.isLimitlessBarrier = false;
+        this.isInvulnerable = false;
+        this.limitlessTimer = 0;
         this.currentSpeed = this.baseSpeed;
       }
     }
