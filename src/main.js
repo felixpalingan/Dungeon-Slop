@@ -945,7 +945,7 @@ function gameLoop(now) {
   }
 
   // --- LEVI ODM AIRBORNE PASS-THROUGH SLICING (HE ONLY SPINS ONCE HE HITS AN ENEMY!) ---
-  if (player.isAirborne && player.activeCables.length > 0) {
+  if (player.isAirborne && (player.activeCables.length > 0 || Math.hypot(player.vx, player.vy) > 180)) {
     const nowTime = performance.now();
     const sliceTargets = [dummy, ...network.remotePlayers.values()];
     for (const target of sliceTargets) {
@@ -1144,7 +1144,7 @@ function gameLoop(now) {
       const worldMouseX = (input.mouse.screenX - window.innerWidth / 2) + player.x;
       const worldMouseY = (input.mouse.screenY - window.innerHeight / 2) + player.y;
 
-      const launched = player.fireOdmCable(worldMouseX, worldMouseY, audio, particles);
+      const launched = player.fireOdmCable(worldMouseX, worldMouseY, audio, particles, dungeonBounds);
       if (launched) {
         cinematics.addScreenShake(3);
         player.syncHUD();
@@ -1176,7 +1176,7 @@ function gameLoop(now) {
       const worldMouseX = (input.mouse.screenX - window.innerWidth / 2) + player.x;
       const worldMouseY = (input.mouse.screenY - window.innerHeight / 2) + player.y;
 
-      const launched = player.fireOdmCable(worldMouseX, worldMouseY, audio, particles);
+      const launched = player.fireOdmCable(worldMouseX, worldMouseY, audio, particles, dungeonBounds);
       if (launched) {
         cinematics.addScreenShake(3);
         player.syncHUD();
