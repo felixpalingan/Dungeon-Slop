@@ -50,6 +50,9 @@ export class CombatSystem {
     } else if (weapon.visual === 'sword_1h') {
       reach = Math.max(reach, 65);
       arcHalfAngle = Math.PI * 0.42;
+    } else if (weapon.visual === 'dual_snap_blades') {
+      reach = Math.max(reach, 72);
+      arcHalfAngle = Math.PI * 0.55; // wide dual cross-slash arc
     }
 
     let hits = [];
@@ -73,8 +76,9 @@ export class CombatSystem {
         while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
 
         if (Math.abs(angleDiff) <= arcHalfAngle) {
-          // Check Critical Strike chance
-          const isCrit = Math.random() < (attacker.equipment?.helmet?.critChance || 0.08);
+          // Check Critical Strike chance (helmet + weapon bonus)
+          const critBonus = (attacker.equipment?.helmet?.critChance || 0) + (attacker.equipment?.weapon?.critChance || 0);
+          const isCrit = Math.random() < (0.08 + critBonus);
           const finalDamage = Math.round(baseDamage * (isCrit ? 1.85 : (0.9 + Math.random() * 0.2)));
 
           // Check if target is actively blocking with a shield
@@ -254,6 +258,15 @@ export class CombatSystem {
           triggerCinematicCallback('berserker_rage', player);
         }
         return true;
+      } else if (setBonus.ultimateQ === 'levi_grapple_whirlwind') {
+        // Levi: Dual High-Tension Grapple Wires & 360° Blade Whirlwind!
+        this.audio.playGrappleWireLaunch();
+        this.particles.spawnComicText(player.x, player.y - 36, 'ODM GRAPPLE RUSH! ⚔️', '#10b981');
+        this.particles.spawnDashBurst(player.x, player.y, player.angle + Math.PI, '#ffffff');
+        if (triggerCinematicCallback) {
+          triggerCinematicCallback('levi_grapple_whirlwind', player);
+        }
+        return true;
       }
     }
 
@@ -297,6 +310,17 @@ export class CombatSystem {
       this.particles.spawnComicText(player.x, player.y - 32, 'CANNON BLAST!', '#fbbf24');
       if (triggerCinematicCallback) {
         triggerCinematicCallback('cannon_arm', player);
+      }
+    } else if (chest.baseQ === 'odm_gas_boost' || chest.visual === 'odm_harness') {
+      // Levi Base Q: ODM Gas Boost
+      this.audio.playOdmGasHiss();
+      if (player.startLunge) {
+        player.startLunge(player.angle, 780, 0.25);
+      }
+      this.particles.spawnComicText(player.x, player.y - 32, 'GAS BOOST! 💨', '#10b981');
+      this.particles.spawnDashBurst(player.x, player.y, player.angle + Math.PI, '#ffffff');
+      if (triggerCinematicCallback) {
+        triggerCinematicCallback('odm_gas_boost', player);
       }
     } else if (chest.visual === 'celestial_chest') {
       // Celestial Radiance: Heal 35 HP + Shockwave

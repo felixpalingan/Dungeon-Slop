@@ -45,6 +45,14 @@ export const SET_DEFINITIONS = {
     requiredItems: ['guts_beast_helm', 'guts_berserker_plate', 'guts_greaves', 'guts_sollerets', 'dragon_slayer'],
     ultimateQ: 'berserker_rage',
     desc: 'Unleashes the Berserker Beast Armor: +85% attack speed, immune to stun & knockback, +35% damage reduction, and 35% life steal!'
+  },
+  'levi': {
+    name: 'Humanity’s Strongest Soldier (Levi Ackerman)',
+    anime: 'Attack on Titan',
+    color: '#10b981',
+    requiredItems: ['scout_hood', 'odm_harness', 'scout_trousers', 'scout_boots', 'dual_snap_blades'],
+    ultimateQ: 'levi_grapple_whirlwind',
+    desc: 'Fires dual unlimited-reach grapple cables towards cursor; upon colliding with an enemy, unleashes a high-speed 360° blade whirlwind!'
   }
 };
 
@@ -378,6 +386,72 @@ export const ITEM_CATALOG = {
     reach: 92,
     visual: 'dragon_slayer',
     desc: 'It was much too big to be called a sword. Massive cleave arc that pulverizes multiple targets.'
+  },
+
+  // --- LEVI ACKERMAN (ATTACK ON TITAN) SET ---
+  'scout_hood': {
+    id: 'scout_hood',
+    name: 'Survey Corps Hooded Cloak',
+    set: 'levi',
+    slot: 'helmet',
+    rarity: 'MYTHIC',
+    hp: 30,
+    armor: 8,
+    speedBonus: 16,
+    cooldownReduction: 0.15,
+    visual: 'scout_hood',
+    desc: 'Deep forest green cowl with silk cravat and Wings of Freedom crest. Grants swift reflexes.'
+  },
+  'odm_harness': {
+    id: 'odm_harness',
+    name: '3D Maneuver Gear & Gas Canisters',
+    set: 'levi',
+    slot: 'chest',
+    rarity: 'MYTHIC',
+    hp: 55,
+    armor: 14,
+    staminaRegen: 15,
+    baseQ: 'odm_gas_boost',
+    visual: 'odm_harness',
+    desc: 'Cropped Scout jacket with leather harnesses and dual gas tanks. Base Q: ODM Gas Boost lunges forward with high-pressure steam.'
+  },
+  'scout_trousers': {
+    id: 'scout_trousers',
+    name: 'Scout Cavalry Trousers',
+    set: 'levi',
+    slot: 'pants',
+    rarity: 'LEGENDARY',
+    hp: 25,
+    armor: 10,
+    speedBonus: 18,
+    rollCostReduction: 25,
+    visual: 'scout_trousers',
+    desc: 'White fitted military breeches with leather harness thigh bands. Greatly reduces dodge roll stamina cost.'
+  },
+  'scout_boots': {
+    id: 'scout_boots',
+    name: 'Scout Knee-High Riding Boots',
+    set: 'levi',
+    slot: 'boots',
+    rarity: 'LEGENDARY',
+    speedBonus: 32,
+    armor: 8,
+    visual: 'scout_boots',
+    desc: 'Dark brown leather cavalry boots with steel buckles. Maximizes sprint acceleration.'
+  },
+  'dual_snap_blades': {
+    id: 'dual_snap_blades',
+    name: 'Dual Ultrahard Steel Snap Blades',
+    set: 'levi',
+    slot: 'weapon',
+    hands: 2, // TWO-HANDED (dual-wielded)
+    rarity: 'MYTHIC',
+    damage: 48,
+    speed: 1.55,
+    reach: 65,
+    critChance: 0.25,
+    visual: 'dual_snap_blades',
+    desc: 'Twin segmented ultrahard steel blades with brake-lever trigger hilts. Slices with rapid dual cross-slashes.'
   },
 
   // =========================================================================

@@ -572,6 +572,12 @@ export class Renderer {
         rightHandX = Math.cos(cleaveArc) * (handDistance + 6);
         rightHandY = Math.sin(cleaveArc) * (handDistance + 6);
         swordAngle = cleaveArc + Math.PI * 0.38;
+      } else if (weapon?.visual === 'dual_snap_blades') {
+        // Levi: Rapid alternating dual cross-slashes (X-cuts) with micro-lunges
+        const crossArc = -Math.PI * 0.48 + p * Math.PI * 1.35;
+        rightHandX = Math.cos(crossArc) * (handDistance + 5);
+        rightHandY = Math.sin(crossArc) * (handDistance + 5);
+        swordAngle = crossArc + Math.PI * 0.35;
       } else {
         // Standard sword swing
         const swingArc = -Math.PI * 0.45 + p * Math.PI * (is2H ? 1.4 : 1.1);
@@ -765,6 +771,65 @@ export class Renderer {
       ctx.closePath();
       ctx.fill();
       ctx.stroke();
+    } else if (weapon?.visual === 'dual_snap_blades') {
+      // Levi's Dual Ultrahard Steel Snap Blades
+      // Blade 1 (Right hand):
+      ctx.fillStyle = '#f8fafc';
+      ctx.strokeStyle = '#94a3b8';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(0, -2.5);
+      ctx.lineTo(38, -2.5);
+      ctx.lineTo(44, 0); // angled snap blade tip
+      ctx.lineTo(38, 2.5);
+      ctx.lineTo(0, 2.5);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      // Segmented snap cutter lines
+      ctx.strokeStyle = '#cbd5e1';
+      ctx.lineWidth = 1;
+      for (let s = 10; s <= 32; s += 8) {
+        ctx.beginPath();
+        ctx.moveTo(s, -2.5);
+        ctx.lineTo(s - 2.5, 2.5);
+        ctx.stroke();
+      }
+
+      // Brake trigger handle grip
+      ctx.fillStyle = '#1e293b';
+      ctx.fillRect(-6, -3, 6, 6);
+      ctx.strokeStyle = '#475569';
+      ctx.strokeRect(-6, -3, 6, 6);
+
+      // Blade 2 (Second blade held in left hand / cross-drawn):
+      ctx.fillStyle = '#f8fafc';
+      ctx.strokeStyle = '#94a3b8';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(-6, -14);
+      ctx.lineTo(32, -14);
+      ctx.lineTo(38, -12);
+      ctx.lineTo(32, -10);
+      ctx.lineTo(-6, -10);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      // Blade 2 segments
+      ctx.strokeStyle = '#cbd5e1';
+      ctx.lineWidth = 1;
+      for (let s = 4; s <= 26; s += 8) {
+        ctx.beginPath();
+        ctx.moveTo(s, -14);
+        ctx.lineTo(s - 2.5, -10);
+        ctx.stroke();
+      }
+
+      // Blade 2 trigger grip
+      ctx.fillStyle = '#1e293b';
+      ctx.fillRect(-12, -15, 6, 6);
     } else {
       // Default Rusty Shortsword
       ctx.fillStyle = '#f7fafc';
@@ -849,6 +914,46 @@ export class Renderer {
         ctx.fillStyle = '#1e293b';
         ctx.fillRect(-8, -radius * 0.85, 8, 6);
         ctx.fillRect(-8, radius * 0.65, 8, 6);
+      } else if (chest.visual === 'odm_harness') {
+        // Levi's 3D Maneuver Gear: cropped caramel jacket, leather harnesses & dual silver gas tanks
+        // 1. Cropped caramel tan Scout jacket
+        ctx.fillStyle = '#b45309';
+        ctx.strokeStyle = '#78350f';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(0, 0, radius * 0.72, -Math.PI / 2, Math.PI / 2);
+        ctx.fill();
+        ctx.stroke();
+
+        // 2. Cross leather straps
+        ctx.strokeStyle = '#451a03';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(-4, -8);
+        ctx.lineTo(6, 8);
+        ctx.moveTo(-4, 8);
+        ctx.lineTo(6, -8);
+        ctx.stroke();
+
+        // 3. Dual silver gas canisters on left & right hips with brass valves
+        ctx.fillStyle = '#cbd5e1';
+        ctx.strokeStyle = '#64748b';
+        ctx.lineWidth = 1.5;
+        // Left hip canister
+        ctx.beginPath();
+        ctx.roundRect(-8, -radius * 0.95, 16, 5.5, [2]);
+        ctx.fill();
+        ctx.stroke();
+        // Right hip canister
+        ctx.beginPath();
+        ctx.roundRect(-8, radius * 0.75, 16, 5.5, [2]);
+        ctx.fill();
+        ctx.stroke();
+
+        // Brass pneumatic nozzle valves
+        ctx.fillStyle = '#f59e0b';
+        ctx.fillRect(-10, -radius * 0.9, 2.5, 3.5);
+        ctx.fillRect(-10, radius * 0.8, 2.5, 3.5);
       } else if (chest.visual === 'celestial_chest') {
         // Radiant golden wings / mantle
         ctx.fillStyle = 'rgba(251, 191, 36, 0.85)';
@@ -952,6 +1057,36 @@ export class Renderer {
       ctx.shadowBlur = 10;
       ctx.fillRect(radius * 0.45, -3, 3, 6);
       ctx.shadowBlur = 0;
+    } else if (helmet?.visual === 'scout_hood') {
+      // Levi's Survey Corps Hooded Cloak & White Silk Cravat
+      // 1. Forest green hooded cowl draped around head
+      ctx.fillStyle = '#065f46';
+      ctx.strokeStyle = '#047857';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(0, 0, radius * 0.65, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+
+      // 2. Crisp white silk cravat tie at throat
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.moveTo(radius * 0.2, -4);
+      ctx.lineTo(radius * 0.55, 0);
+      ctx.lineTo(radius * 0.2, 4);
+      ctx.lineTo(radius * 0.05, 0);
+      ctx.closePath();
+      ctx.fill();
+
+      // 3. Wings of Freedom badge (mini blue & white crest)
+      ctx.fillStyle = '#0284c7';
+      ctx.fillRect(radius * 0.12, -2.5, 4, 5);
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(radius * 0.12 + 2, -2.5, 2, 5);
+
+      // Shadowed stoic eyes slit
+      ctx.fillStyle = '#0f172a';
+      ctx.fillRect(radius * 0.35, -4, 4, 8);
     } else if (helmet?.visual === 'horned_helm') {
       // Fierce barbarian horns sticking out left and right
       ctx.fillStyle = '#f8fafc';

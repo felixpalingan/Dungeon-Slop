@@ -69,7 +69,14 @@ const batch1Loot = [
   new GroundLoot(ITEM_CATALOG['guts_berserker_plate'], 140, 20, 'loot_guts_berserker_plate'),
   new GroundLoot(ITEM_CATALOG['guts_greaves'], 180, 20, 'loot_guts_greaves'),
   new GroundLoot(ITEM_CATALOG['guts_sollerets'], 220, 20, 'loot_guts_sollerets'),
-  new GroundLoot(ITEM_CATALOG['dragon_slayer'], 260, 20, 'loot_dragon_slayer')
+  new GroundLoot(ITEM_CATALOG['dragon_slayer'], 260, 20, 'loot_dragon_slayer'),
+
+  // Levi items (Attack on Titan)
+  new GroundLoot(ITEM_CATALOG['scout_hood'], -160, 80, 'loot_scout_hood'),
+  new GroundLoot(ITEM_CATALOG['odm_harness'], -120, 80, 'loot_odm_harness'),
+  new GroundLoot(ITEM_CATALOG['scout_trousers'], -80, 80, 'loot_scout_trousers'),
+  new GroundLoot(ITEM_CATALOG['scout_boots'], -40, 80, 'loot_scout_boots'),
+  new GroundLoot(ITEM_CATALOG['dual_snap_blades'], 0, 80, 'loot_dual_snap_blades')
 ];
 
 batch1Loot.forEach((loot) => groundItems.set(loot.id, loot));
@@ -537,6 +544,8 @@ network.onMessageReceived = (fromPeerId, msg) => {
     else if (msg.ultimateType === 'spartan_kick') audio.playSpartanKick();
     else if (msg.ultimateType === 'dismantle') audio.playDismantleCuts();
     else if (msg.ultimateType === 'cannon_arm') audio.playExplosion();
+    else if (msg.ultimateType === 'levi_grapple_whirlwind') audio.playGrappleWireLaunch();
+    else if (msg.ultimateType === 'odm_gas_boost') audio.playOdmGasHiss();
     // Note: network.handleIncomingData already relays to other peers on the host; no duplicate broadcast here!
   } else if (msg.type === 'TARGET_STUNNED') {
     if (msg.targetPeerId === network.myPeerId) {
@@ -621,6 +630,9 @@ function playWeaponAttackSound(weapon) {
     case 'crystal_blade':
       audio.playCrystalSlash();
       break;
+    case 'dual_snap_blades':
+      audio.playSnapBladesSlash();
+      break;
     default:
       audio.playSwing();
       break;
@@ -657,6 +669,9 @@ function handleAttacks() {
         audio.playChainThrust();
       } else if (weaponVisual === 'crystal_blade') {
         audio.playCrystalSlash();
+      } else if (weaponVisual === 'dual_snap_blades') {
+        audio.playSnapBladesSlash();
+        cinematics.addScreenShake(7);
       } else {
         audio.playBonk();
       }
@@ -893,6 +908,29 @@ function gameLoop(now) {
         particles.spawnComicText(dummy.x, dummy.y - 28, `REPULSED! -${proj.damage}`, '#00f0ff');
         return;
       }
+      if (proj.type === 'levi_whirlwind') {
+        dummy.takeHit(proj.damage, proj.angle, proj.knockback);
+        audio.playSnapBladesSlash();
+        cinematics.addScreenShake(8);
+        const spinMsg = proj.isFirstHit ? 'BLENDER WHIRLWIND! 🌀' : `SLICE! -${proj.damage}`;
+        particles.spawnComicText(dummy.x, dummy.y - 28, spinMsg, '#10b981');
+        particles.spawnDashBurst(dummy.x, dummy.y, proj.angle, '#10b981');
+        const hitMsg = { type: 'DUMMY_HIT', damage: proj.damage, angle: proj.angle, isCrit: true };
+        if (network.isHost) network.broadcast(hitMsg);
+        else network.sendToHost(hitMsg);
+        return;
+      }
+      if (proj.type === 'odm_gas_boost') {
+        dummy.takeHit(proj.damage, proj.angle, proj.knockback);
+        audio.playOdmGasHiss();
+        cinematics.addScreenShake(6);
+        particles.spawnComicText(dummy.x, dummy.y - 28, `GAS BLAST! -${proj.damage}`, '#10b981');
+        particles.spawnDashBurst(dummy.x, dummy.y, proj.angle, '#ffffff');
+        const hitMsg = { type: 'DUMMY_HIT', damage: proj.damage, angle: proj.angle, isCrit: false };
+        if (network.isHost) network.broadcast(hitMsg);
+        else network.sendToHost(hitMsg);
+        return;
+      }
       dummy.takeHit(proj.damage, Math.atan2(proj.vy || 0, proj.vx || 0), proj.isStun ? 0 : 350);
       if (proj.isStun) {
         dummy.applyStun(proj.stunDuration || 2.5);
@@ -921,7 +959,18 @@ function gameLoop(now) {
             if (network.isHost) network.broadcast(slapMsg);
             else network.sendToHost(slapMsg);
           }
-          particles.spawnComicText(remote.x, remote.y - 24, `${(proj.type || 'HIT').toUpperCase().replace(/_/g, ' ')}!`, '#ff2a5f');
+          if (proj.type === 'levi_whirlwind') {
+            audio.playSnapBladesSlash();
+            cinematics.addScreenShake(8);
+            particles.spawnComicText(remote.x, remote.y - 24, `BLENDER SLICE! -${proj.damage}`, '#10b981');
+            particles.spawnDashBurst(remote.x, remote.y, proj.angle, '#10b981');
+          } else if (proj.type === 'odm_gas_boost') {
+            audio.playOdmGasHiss();
+            particles.spawnComicText(remote.x, remote.y - 24, `GAS BLAST! -${proj.damage}`, '#10b981');
+            particles.spawnDashBurst(remote.x, remote.y, proj.angle, '#ffffff');
+          } else {
+            particles.spawnComicText(remote.x, remote.y - 24, `${(proj.type || 'HIT').toUpperCase().replace(/_/g, ' ')}!`, '#ff2a5f');
+          }
         }
       }
     }

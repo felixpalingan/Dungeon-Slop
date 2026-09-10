@@ -863,4 +863,159 @@ export class AudioManager {
       console.warn('Audio error in Berserk Roar:', e);
     }
   }
+
+  // =========================================================================
+  // LEVI ACKERMAN (ATTACK ON TITAN) SYNTHESIZERS
+  // =========================================================================
+
+  /**
+   * Dual Ultrahard Steel Snap Blades: Crisp double metallic unsheathing slice
+   */
+  playSnapBladesSlash() {
+    if (this.isMuted) return;
+    this.ensureContext();
+    if (!this.ctx) return;
+
+    try {
+      const now = this.ctx.currentTime;
+      for (let i = 0; i < 2; i++) {
+        const t = now + i * 0.055;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(1400 + i * 400, t);
+        osc.frequency.exponentialRampToValueAtTime(320, t + 0.09);
+
+        gain.gain.setValueAtTime(0.35, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.09);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+
+        osc.start(t);
+        osc.stop(t + 0.09);
+      }
+    } catch (e) {
+      console.warn('Audio error in Snap Blades Slash:', e);
+    }
+  }
+
+  /**
+   * ODM Gas Boost: High-pressure burst of compressed pneumatic steam
+   */
+  playOdmGasHiss() {
+    if (this.isMuted) return;
+    this.ensureContext();
+    if (!this.ctx) return;
+
+    try {
+      const now = this.ctx.currentTime;
+      const bufferSize = this.ctx.sampleRate * 0.28;
+      const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i++) {
+        data[i] = Math.random() * 2 - 1;
+      }
+
+      const noise = this.ctx.createBufferSource();
+      noise.buffer = buffer;
+
+      const filter = this.ctx.createBiquadFilter();
+      filter.type = 'bandpass';
+      filter.frequency.setValueAtTime(2200, now);
+      filter.frequency.exponentialRampToValueAtTime(900, now + 0.28);
+      filter.Q.value = 2.0;
+
+      const gain = this.ctx.createGain();
+      gain.gain.setValueAtTime(0.5, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.28);
+
+      noise.connect(filter);
+      filter.connect(gain);
+      gain.connect(this.ctx.destination);
+
+      noise.start(now);
+      noise.stop(now + 0.28);
+    } catch (e) {
+      console.warn('Audio error in ODM Gas Hiss:', e);
+    }
+  }
+
+  /**
+   * Grapple Wire Launch: Dual high-tension cable spool whir + metal anchor impact ping
+   */
+  playGrappleWireLaunch() {
+    if (this.isMuted) return;
+    this.ensureContext();
+    if (!this.ctx) return;
+
+    try {
+      const now = this.ctx.currentTime;
+      // 1. Spool whir
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(420, now);
+      osc.frequency.exponentialRampToValueAtTime(1100, now + 0.15);
+
+      gain.gain.setValueAtTime(0.25, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.15);
+
+      // 2. Anchor CLINK!
+      const ping = this.ctx.createOscillator();
+      const pingGain = this.ctx.createGain();
+      ping.type = 'sine';
+      ping.frequency.setValueAtTime(2600, now + 0.08);
+      ping.frequency.exponentialRampToValueAtTime(800, now + 0.22);
+
+      pingGain.gain.setValueAtTime(0.4, now + 0.08);
+      pingGain.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
+
+      ping.connect(pingGain);
+      pingGain.connect(this.ctx.destination);
+      ping.start(now + 0.08);
+      ping.stop(now + 0.22);
+    } catch (e) {
+      console.warn('Audio error in Grapple Wire Launch:', e);
+    }
+  }
+
+  /**
+   * 360° Blade Whirlwind: Multi-hit centrifugal metallic shredding vortex
+   */
+  playBladeWhirlwind() {
+    if (this.isMuted) return;
+    this.ensureContext();
+    if (!this.ctx) return;
+
+    try {
+      const now = this.ctx.currentTime;
+      for (let i = 0; i < 6; i++) {
+        const t = now + i * 0.06;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+
+        osc.type = i % 2 === 0 ? 'triangle' : 'sawtooth';
+        osc.frequency.setValueAtTime(950 + i * 180, t);
+        osc.frequency.exponentialRampToValueAtTime(240, t + 0.08);
+
+        gain.gain.setValueAtTime(0.35, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.08);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+
+        osc.start(t);
+        osc.stop(t + 0.08);
+      }
+    } catch (e) {
+      console.warn('Audio error in Blade Whirlwind:', e);
+    }
+  }
 }

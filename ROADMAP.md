@@ -83,11 +83,12 @@ All visuals are **100% procedural 2D shapes** (zero sprite art needed), networki
 
 ---
 
-### Step 3.5: Anime Gear Batch 2 — Attack on Titan, Cyberpunk & One Punch Man `[UPCOMING]`
-- **Levi Ackerman Set (Attack on Titan)**:
+### Step 3.5: Anime Gear Batch 2 — Attack on Titan, Cyberpunk & One Punch Man `[IN PROGRESS]`
+- **Levi Ackerman Set (Attack on Titan)** `[COMPLETED]`:
   - *Items*: Survey Corps Hooded Cloak, 3D Maneuver Harness & Gas Canisters, Cavalry Trousers, Riding Boots, Dual Ultrahard Steel Snap Blades.
-  - *Mechanics per User Feedback*: Clicking launches a **single high-tension grapple cable** towards the cursor, pulling the player along an unrestrained trajectory while spinning in a 360° blade whirlwind damaging all collided enemies with comic `SLASH!` and `WHIRLWIND!` popups.
-- **David Martinez Set (Cyberpunk: Edgerunners)**:
+  - *Base Q*: **ODM Gas Boost**: Fires compressed steam gas backwards, lunging forward with a steam cloud and pushing away nearby enemies.
+  - *Full Set Q*: **ODM Dual Grapple Wires & 360° Blade Whirlwind**: Fires dual unlimited-reach grapple cables towards the cursor, rapidly reeling Levi in at high velocity; only upon colliding with an enemy, unleashes a 360° spinning blade whirlwind ("The Titan Blender") with `SLASH! 🌀` and `WHIRLWIND! ⚔️` multi-hit slices!
+- **David Martinez Set (Cyberpunk: Edgerunners)** `[UPCOMING]`:
   - *Items*: Kiroshi Optics Mk. 4, Gloria's High-Vis EMT Jacket, Streetkid Cargo Pants, Chrome Cyber-Sneakers, Carnage Shotgun, Gorilla Arms.
   - *Mechanics per User Feedback*: **Military-Grade Sandevistan**: Global slow-mo where time slows down to **10% speed for everyone else** (all monsters, projectiles, and other players), while David is the **only one moving at normal speed** for 4s with cyan and lime chromatic trails.
 - **Saitama Set (One Punch Man)**:

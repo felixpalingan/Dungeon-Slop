@@ -191,6 +191,55 @@ export class CinematicManager {
         hasRepelled: false
       });
       this.addScreenShake(6);
+    } else if (type === 'odm_gas_boost') {
+      // Levi Base Q: ODM Gas Boost high-pressure forward steam blast
+      this.addScreenShake(8);
+      this.projectiles.push({
+        type: 'odm_gas_boost',
+        caster: player,
+        isRemote: !!isRemote,
+        x: player.x + Math.cos(player.angle) * 28,
+        y: player.y + Math.sin(player.angle) * 28,
+        vx: Math.cos(player.angle) * 780,
+        vy: Math.sin(player.angle) * 780,
+        radius: 40,
+        damage: 45,
+        knockback: 520,
+        life: 0.25,
+        angle: player.angle
+      });
+    } else if (type === 'levi_grapple_whirlwind') {
+      // Levi Full Set Q: Dual High-Tension Grapple Wires (Unlimited Reach, Max 2 Cables)
+      // Reeling in at high velocity; only spins once he hits an enemy!
+      const reach = 980; // unlimited cross-arena line-of-sight reach
+      const targetAngle = player.angle;
+      const anchorX = player.x + Math.cos(targetAngle) * reach;
+      const anchorY = player.y + Math.sin(targetAngle) * reach;
+
+      this.activeCinematics.push({
+        type: 'levi_grapple_whirlwind',
+        caster: player,
+        isRemote: !!isRemote,
+        timer: 2.2,
+        duration: 2.2,
+        x: player.x,
+        y: player.y,
+        anchorX,
+        anchorY,
+        cable1: {
+          endX: anchorX - Math.sin(targetAngle) * 18,
+          endY: anchorY + Math.cos(targetAngle) * 18
+        },
+        cable2: {
+          endX: anchorX + Math.sin(targetAngle) * 18,
+          endY: anchorY - Math.cos(targetAngle) * 18
+        },
+        phase: 'zipping', // 'zipping' -> 'spinning' -> 'finished'
+        spinTimer: 0,
+        spinDuration: 0.85,
+        hitMap: new Map()
+      });
+      this.addScreenShake(14);
     }
   }
 
@@ -337,7 +386,111 @@ export class CinematicManager {
         }
       }
 
-      if (c.timer <= 0) {
+      // 4. Levi's Dual Grapple Wires & 360° Blade Whirlwind
+      if (c.type === 'levi_grapple_whirlwind') {
+        const caster = c.caster;
+        if (c.phase === 'zipping') {
+          // Levi reels towards the anchor along the wire trajectory at high velocity
+          const currentX = caster ? caster.x : c.x;
+          const currentY = caster ? caster.y : c.y;
+          const dx = c.anchorX - currentX;
+          const dy = c.anchorY - currentY;
+          const dist = Math.hypot(dx, dy);
+
+          if (dist > 35 && caster) {
+            const step = Math.min(dist, 1100 * dt);
+            caster.x += (dx / dist) * step;
+            caster.y += (dy / dist) * step;
+            caster.angle = Math.atan2(dy, dx);
+            c.x = caster.x;
+            c.y = caster.y;
+
+            // Spawn green and white ODM steam exhaust after-images
+            if (caster.afterImages && Math.random() < 0.65) {
+              caster.afterImages.push({
+                x: caster.x,
+                y: caster.y,
+                angle: caster.angle,
+                color: '#10b981',
+                alpha: 0.55
+              });
+            }
+
+            // CHECK ENEMY COLLISION: ONLY SPINS ONCE HE HITS AN ENEMY!
+            if (!c.isRemote) {
+              for (const target of targets) {
+                if (!target || target === caster) continue;
+                const tdx = target.x - caster.x;
+                const tdy = target.y - caster.y;
+                const tdist = Math.hypot(tdx, tdy);
+                const hitRadius = (target.radius || 24) + 36;
+
+                if (tdist <= hitRadius) {
+                  // HIT AN ENEMY! Switch immediately to 360° spinning blade whirlwind!
+                  c.phase = 'spinning';
+                  c.spinTimer = c.spinDuration;
+                  c.spinningTarget = target;
+                  this.addScreenShake(18);
+                  if (onHitCallback) {
+                    onHitCallback(target, {
+                      type: 'levi_whirlwind',
+                      damage: 75,
+                      angle: Math.atan2(tdy, tdx),
+                      knockback: 200,
+                      isFirstHit: true
+                    });
+                  }
+                  break;
+                }
+              }
+            }
+          } else {
+            // Reached anchor without hitting an enemy -> zip finished
+            c.phase = 'finished';
+            c.timer = 0;
+          }
+        } else if (c.phase === 'spinning') {
+          // Continuous 360° high-speed rotational blade whirlwind locked on the hit enemy!
+          c.spinTimer -= dt;
+          const posX = caster ? caster.x : c.x;
+          const posY = caster ? caster.y : c.y;
+
+          if (caster) {
+            caster.angle += dt * 32; // 360° spin at high angular velocity!
+          }
+
+          if (!c.isRemote && onHitCallback) {
+            for (const target of targets) {
+              if (!target || target === caster) continue;
+              const dx = target.x - posX;
+              const dy = target.y - posY;
+              const dist = Math.hypot(dx, dy);
+
+              if (dist <= 95) {
+                if (!c.hitMap) c.hitMap = new Map();
+                const lastHit = c.hitMap.get(target) || 0;
+                const now = performance.now();
+                if (now - lastHit >= 110) { // slice tick every 110ms
+                  c.hitMap.set(target, now);
+                  onHitCallback(target, {
+                    type: 'levi_whirlwind',
+                    damage: 65,
+                    angle: Math.atan2(dy, dx),
+                    knockback: 180
+                  });
+                }
+              }
+            }
+          }
+
+          if (c.spinTimer <= 0) {
+            c.phase = 'finished';
+            c.timer = 0;
+          }
+        }
+      }
+
+      if (c.timer <= 0 || c.phase === 'finished') {
         this.activeCinematics.splice(cIdx, 1);
       }
     }
@@ -504,6 +657,17 @@ export class CinematicManager {
           ctx.arc(0, 0, r + 3, 0, Math.PI * 2);
           ctx.stroke();
         }
+      } else if (proj.type === 'odm_gas_boost') {
+        // High-velocity steam puff cone
+        ctx.rotate(proj.angle);
+        ctx.fillStyle = 'rgba(241, 245, 249, 0.75)';
+        ctx.shadowColor = '#10b981';
+        ctx.shadowBlur = 12;
+        ctx.beginPath();
+        ctx.arc(0, 0, proj.radius, -Math.PI * 0.4, Math.PI * 0.4);
+        ctx.lineTo(0, 0);
+        ctx.closePath();
+        ctx.fill();
       }
 
       ctx.restore();
@@ -581,6 +745,75 @@ export class CinematicManager {
         ctx.setLineDash([]);
 
         ctx.restore();
+      } else if (c.type === 'levi_grapple_whirlwind') {
+        const posX = c.caster ? c.caster.x : c.x;
+        const posY = c.caster ? c.caster.y : c.y;
+
+        // 1. Draw Dual High-Tension Grapple Wires from hips to anchor points
+        ctx.save();
+        // Left Cable
+        ctx.strokeStyle = '#94a3b8';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(posX, posY);
+        ctx.lineTo(c.cable1.endX, c.cable1.endY);
+        ctx.stroke();
+
+        // Right Cable
+        ctx.beginPath();
+        ctx.moveTo(posX, posY);
+        ctx.lineTo(c.cable2.endX, c.cable2.endY);
+        ctx.stroke();
+
+        // Taut core shine on cables
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(posX, posY);
+        ctx.lineTo(c.cable1.endX, c.cable1.endY);
+        ctx.moveTo(posX, posY);
+        ctx.lineTo(c.cable2.endX, c.cable2.endY);
+        ctx.stroke();
+
+        // Anchor piton pins in ground
+        ctx.fillStyle = '#475569';
+        ctx.fillRect(c.cable1.endX - 3, c.cable1.endY - 3, 6, 6);
+        ctx.fillRect(c.cable2.endX - 3, c.cable2.endY - 3, 6, 6);
+        ctx.restore();
+
+        // 2. When in 'spinning' phase: Draw the violent 360° blade whirlwind circle!
+        if (c.phase === 'spinning') {
+          ctx.save();
+          ctx.translate(posX, posY);
+
+          const spinProgress = 1 - c.spinTimer / c.spinDuration;
+          const spinAngle = spinProgress * Math.PI * 16; // 8 full revolutions!
+
+          // Outer Emerald Wind Vortex
+          ctx.strokeStyle = 'rgba(16, 185, 129, 0.85)';
+          ctx.shadowColor = '#10b981';
+          ctx.shadowBlur = 22;
+          ctx.lineWidth = 4.5;
+          ctx.beginPath();
+          ctx.arc(0, 0, 78, spinAngle, spinAngle + Math.PI * 1.3);
+          ctx.stroke();
+
+          // Inner Gleaming Silver Blade Whirlwind
+          ctx.strokeStyle = '#f8fafc';
+          ctx.lineWidth = 3;
+          ctx.beginPath();
+          ctx.arc(0, 0, 62, -spinAngle, -spinAngle + Math.PI * 1.5);
+          ctx.stroke();
+
+          // Dual spinning blade silhouettes
+          ctx.rotate(spinAngle);
+          ctx.fillStyle = '#f8fafc';
+          ctx.fillRect(-65, -3, 130, 6);
+          ctx.fillStyle = '#10b981';
+          ctx.fillRect(-70, -2, 140, 4);
+
+          ctx.restore();
+        }
       }
     }
   }
@@ -651,6 +884,16 @@ export class CinematicManager {
         const grad = ctx.createRadialGradient(width / 2, height / 2, width * 0.3, width / 2, height / 2, width * 0.75);
         grad.addColorStop(0, 'rgba(0, 0, 0, 0)');
         grad.addColorStop(1, `rgba(220, 20, 20, ${pulse})`);
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, width, height);
+        ctx.restore();
+      } else if (c.type === 'levi_grapple_whirlwind') {
+        // Emerald Scout speedline vignette
+        const pulse = 0.25 + Math.sin(Date.now() * 0.02) * 0.12;
+        ctx.save();
+        const grad = ctx.createRadialGradient(width / 2, height / 2, width * 0.35, width / 2, height / 2, width * 0.75);
+        grad.addColorStop(0, 'rgba(0, 0, 0, 0)');
+        grad.addColorStop(1, `rgba(16, 185, 129, ${pulse})`);
         ctx.fillStyle = grad;
         ctx.fillRect(0, 0, width, height);
         ctx.restore();
