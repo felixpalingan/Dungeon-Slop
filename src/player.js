@@ -197,8 +197,8 @@ export class Player {
    * Fires a single ODM high-tension cable towards wall anchor (Fanny MLBB mechanic)
    */
   fireOdmCable(targetX, targetY, audio = null, particles = null, bounds = { minX: -580, minY: -580, maxX: 580, maxY: 580 }) {
-    if (this.odmGas < 18) return false;
-    this.odmGas = Math.max(0, this.odmGas - 18);
+    if (this.odmGas < 10) return false;
+    this.odmGas = Math.max(0, this.odmGas - 10);
 
     // Calculate wall collision point along the aim ray (unlimited reach to wall)
     const anchor = projectRayToDungeonWall(this.x, this.y, targetX - this.x, targetY - this.y, bounds);
@@ -476,26 +476,30 @@ export class Player {
       this.activeCables = this.activeCables.filter(c => c.life > 0);
 
       if (this.activeCables.length > 0) {
-        // CABLE 1 (cast first) is ALWAYS the primary destination visited first!
-        const c1 = this.activeCables[0];
-        const d1x = c1.anchorX - this.x;
-        const d1y = c1.anchorY - this.y;
-        const dist1 = Math.hypot(d1x, d1y);
-
         let moveDirX = 0;
         let moveDirY = 0;
-        let speed = 640; // Tuned down from 1400 so it feels smooth, anime-fast, yet completely controllable
+        let speed = 650;
 
         if (this.activeCables.length === 1) {
           // 1 cable active: direct pull towards anchor 1
-          if (dist1 > 0.001) {
-            moveDirX = d1x / dist1;
-            moveDirY = d1y / dist1;
+          const c = this.activeCables[0];
+          const dx = c.anchorX - this.x;
+          const dy = c.anchorY - this.y;
+          const dist = Math.hypot(dx, dy);
+          if (dist > 0.001) {
+            moveDirX = dx / dist;
+            moveDirY = dy / dist;
           }
-          speed = 640;
+          speed = 650;
         } else if (this.activeCables.length >= 2) {
-          // 2 cables active: Slingshot toward Cable 1 with slight lateral curve toward Cable 2
+          // 2 cables active: Equal vector sum (bisector) between both anchors!
+          // When 1 cable is forward-left and 1 is forward-right, Levi shoots straight between them!
+          const c1 = this.activeCables[0];
           const c2 = this.activeCables[1];
+          const d1x = c1.anchorX - this.x;
+          const d1y = c1.anchorY - this.y;
+          const dist1 = Math.hypot(d1x, d1y);
+
           const d2x = c2.anchorX - this.x;
           const d2y = c2.anchorY - this.y;
           const dist2 = Math.hypot(d2x, d2y);
@@ -505,51 +509,53 @@ export class Player {
           const u2x = dist2 > 0.001 ? d2x / dist2 : 0;
           const u2y = dist2 > 0.001 ? d2y / dist2 : 0;
 
-          // Dot product between directions (1 = same direction, -1 = opposite)
-          const dotCables = u1x * u2x + u1y * u2y;
+          // Combined 50/50 vector sum
+          const sumX = u1x + u2x;
+          const sumY = u1y + u2y;
+          const sumLen = Math.hypot(sumX, sumY);
 
-          if (dotCables > -0.2) {
-            // Forward/flank quadrant: 75% pull to C1, 25% pull to C2 -> smooth curving path towards C1
-            const blendX = u1x * 0.75 + u2x * 0.25;
-            const blendY = u1y * 0.75 + u2y * 0.25;
-            const blendLen = Math.hypot(blendX, blendY);
-            if (blendLen > 0.01) {
-              moveDirX = blendX / blendLen;
-              moveDirY = blendY / blendLen;
-            } else {
-              moveDirX = u1x;
-              moveDirY = u1y;
-            }
+          if (sumLen > 0.15) {
+            // Direct bisector flight straight down the center between both anchors!
+            moveDirX = sumX / sumLen;
+            moveDirY = sumY / sumLen;
           } else {
-            // Opposite walls: Head 100% directly towards C1 first! Prevents stalling in the middle.
-            moveDirX = u1x;
-            moveDirY = u1y;
+            // If anchors are in directly opposing directions (nearly 180 deg apart):
+            // Redirect smoothly towards the newer cable
+            moveDirX = u2x;
+            moveDirY = u2y;
           }
 
-          speed = 720; // Dual cable slingshot velocity
+          speed = 740; // Dual cable slingshot velocity boost
         }
 
         this.vx = moveDirX * speed;
         this.vy = moveDirY * speed;
         this.angle = Math.atan2(moveDirY, moveDirX);
 
-        // --- CABLE 1 DETACHMENT CHECK ---
-        const curDist1 = dist1;
-        const prevDist1 = c1.prevDist !== undefined ? c1.prevDist : curDist1;
-        c1.prevDist = curDist1;
+        // --- CABLE DETACHMENT CHECK (Per-cable physics) ---
+        // A cable detaches when:
+        // 1. Player is within 46px of its anchor (reached wall)
+        // 2. The anchor has passed behind the player's flight velocity vector (dot product <= 0)
+        // 3. Distance starts increasing after approaching (closest point of approach passed)
+        const survivingCables = [];
+        for (let i = 0; i < this.activeCables.length; i++) {
+          const cable = this.activeCables[i];
+          const cdx = cable.anchorX - this.x;
+          const cdy = cable.anchorY - this.y;
+          const cdist = Math.hypot(cdx, cdy);
+          const prevDist = cable.prevDist !== undefined ? cable.prevDist : cdist;
+          cable.prevDist = cdist;
 
-        // Check if player has reached or passed anchor 1
-        const isReached1 = curDist1 <= 48;
-        // If anchor 1 is now behind velocity vector
-        const isBehind1 = (d1x * this.vx + d1y * this.vy) < -0.01;
-        // If player was close and distance started increasing (closest approach passed)
-        const isPast1 = curDist1 < 120 && curDist1 > prevDist1 + 0.5;
+          const dotWithVel = cdx * this.vx + cdy * this.vy;
+          const isReached = cdist <= 46;
+          const isBehind = dotWithVel < -0.01;
+          const isPast = cdist < 120 && cdist > prevDist + 0.5;
 
-        if (isReached1 || isBehind1 || isPast1) {
-          // Cable 1 detaches!
-          this.activeCables.shift();
-          // If Cable 2 was present, on the next frame it becomes Cable 1 and pulls the player seamlessly!
+          if (!isReached && !isBehind && !isPast && cable.life > 0) {
+            survivingCables.push(cable);
+          }
         }
+        this.activeCables = survivingCables;
       }
 
       // Emerald & white steam after-images
