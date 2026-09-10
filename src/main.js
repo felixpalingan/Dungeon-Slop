@@ -457,7 +457,8 @@ dummy.onMeleeHit = (target, dmg, angle) => {
     if (res) {
       audio.playBonk();
       cinematics.addScreenShake(8);
-      particles.spawnComicText(player.x, player.y - 28, res.isBlocked ? 'BLOCKED! 🛡️' : `-${res.damage}`, res.isBlocked ? '#38bdf8' : '#ef4444');
+      const statusText = player.isBerserk ? `-${res.damage} (UNSTOPPABLE! 🩸)` : (res.isBlocked ? 'BLOCKED! 🛡️' : `-${res.damage}`);
+      particles.spawnComicText(player.x, player.y - 28, statusText, player.isBerserk ? '#ef4444' : (res.isBlocked ? '#38bdf8' : '#ef4444'));
       broadcastMyState();
     }
   }
@@ -502,6 +503,10 @@ network.onMessageReceived = (fromPeerId, msg) => {
     updatePartyRoster();
   } else if (msg.type === 'SLAP_KNOCKBACK') {
     if (msg.targetPeerId === network.myPeerId) {
+      if (player.isBerserk) {
+        particles.spawnComicText(player.x, player.y - 20, 'UNSTOPPABLE! 🩸', '#ef4444');
+        return;
+      }
       player.applyKnockback(msg.kx, msg.ky);
       audio.playBonk();
       particles.spawnComicText(player.x, player.y - 20, 'BONK!', '#ff0055');
@@ -535,12 +540,20 @@ network.onMessageReceived = (fromPeerId, msg) => {
     // Note: network.handleIncomingData already relays to other peers on the host; no duplicate broadcast here!
   } else if (msg.type === 'TARGET_STUNNED') {
     if (msg.targetPeerId === network.myPeerId) {
+      if (player.isBerserk) {
+        particles.spawnComicText(player.x, player.y - 32, 'UNSTOPPABLE! 🩸', '#ef4444');
+        return;
+      }
       player.applyStun(msg.duration || 2.5);
       audio.playBonk();
       particles.spawnComicText(player.x, player.y - 32, 'STUNNED! 💫', '#fde047');
     } else {
       const remote = network.remotePlayers.get(msg.targetPeerId);
       if (remote) {
+        if (remote.isBerserk) {
+          particles.spawnComicText(remote.x, remote.y - 32, 'UNSTOPPABLE! 🩸', '#ef4444');
+          return;
+        }
         remote.isStunned = true;
         particles.spawnComicText(remote.x, remote.y - 32, 'STUNNED! 💫', '#fde047');
       }
@@ -679,6 +692,23 @@ function handleAttacks() {
       }
     }
   }
+
+  // Guts Berserker Beast Life Steal (+35% damage siphon or min 14 HP)
+  if (player.isBerserk && hits.length > 0) {
+    const totalDmg = hits.reduce((sum, h) => sum + (h.damage || 0), 0);
+    const lifesteal = Math.max(14, Math.round(totalDmg * 0.35));
+    const oldHp = player.hp;
+    player.hp = Math.min(player.maxHp, player.hp + lifesteal);
+    const healed = player.hp - oldHp;
+    if (healed > 0) {
+      particles.spawnComicText(player.x, player.y - 44, `+${healed} HP 🩸 LIFE STEAL`, '#22c55e');
+      particles.spawnDashBurst(player.x, player.y, 0, '#ef4444');
+      player.syncHUD();
+      broadcastMyState();
+    } else {
+      particles.spawnComicText(player.x, player.y - 44, `MAX HP 🩸 LIFE STEAL`, '#22c55e');
+    }
+  }
 }
 
 function handleOffhandAttack() {
@@ -732,6 +762,23 @@ function handleOffhandAttack() {
           particles.spawnComicText(remote.x, remote.y - 20, effectLabel, '#ff2a5f');
         }
       }
+    }
+  }
+
+  // Guts Berserker Beast Life Steal for offhand attack
+  if (player.isBerserk && hits.length > 0) {
+    const totalDmg = hits.reduce((sum, h) => sum + (h.damage || 0), 0);
+    const lifesteal = Math.max(14, Math.round(totalDmg * 0.35));
+    const oldHp = player.hp;
+    player.hp = Math.min(player.maxHp, player.hp + lifesteal);
+    const healed = player.hp - oldHp;
+    if (healed > 0) {
+      particles.spawnComicText(player.x, player.y - 44, `+${healed} HP 🩸 LIFE STEAL`, '#22c55e');
+      particles.spawnDashBurst(player.x, player.y, 0, '#ef4444');
+      player.syncHUD();
+      broadcastMyState();
+    } else {
+      particles.spawnComicText(player.x, player.y - 44, `MAX HP 🩸 LIFE STEAL`, '#22c55e');
     }
   }
 }
@@ -818,11 +865,26 @@ function gameLoop(now) {
         if (res) {
           audio.playBonk();
           cinematics.addScreenShake(6);
-          particles.spawnComicText(player.x, player.y - 28, res.isBlocked ? 'BLOCKED! 🛡️' : `-${res.damage}`, res.isBlocked ? '#38bdf8' : '#ef4444');
+          const statusText = player.isBerserk ? `-${res.damage} (UNSTOPPABLE! 🩸)` : (res.isBlocked ? 'BLOCKED! 🛡️' : `-${res.damage}`);
+          particles.spawnComicText(player.x, player.y - 28, statusText, player.isBerserk ? '#ef4444' : (res.isBlocked ? '#38bdf8' : '#ef4444'));
           broadcastMyState();
         }
       }
       return;
+    }
+
+    // Guts Berserker projectile life steal (e.g. shockwaves or deflected projectiles)
+    if (proj.caster === player && player.isBerserk && proj.damage) {
+      const lifesteal = Math.max(12, Math.round(proj.damage * 0.35));
+      const oldHp = player.hp;
+      player.hp = Math.min(player.maxHp, player.hp + lifesteal);
+      const healed = player.hp - oldHp;
+      if (healed > 0) {
+        particles.spawnComicText(player.x, player.y - 44, `+${healed} HP 🩸 LIFE STEAL`, '#22c55e');
+        particles.spawnDashBurst(player.x, player.y, 0, '#ef4444');
+        player.syncHUD();
+        broadcastMyState();
+      }
     }
     if (target === dummy) {
       if (proj.type === 'limitless_repulsion') {

@@ -44,7 +44,7 @@ export const SET_DEFINITIONS = {
     color: '#ef4444',
     requiredItems: ['guts_beast_helm', 'guts_berserker_plate', 'guts_greaves', 'guts_sollerets', 'dragon_slayer'],
     ultimateQ: 'berserker_rage',
-    desc: 'Unleashes the Berserker Armor, becoming immune to all damage with colossal CLANG strikes!'
+    desc: 'Unleashes the Berserker Beast Armor: +85% attack speed, immune to stun & knockback, +35% damage reduction, and 35% life steal!'
   }
 };
 

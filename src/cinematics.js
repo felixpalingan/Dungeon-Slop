@@ -104,9 +104,9 @@ export class CinematicManager {
       });
       this.addScreenShake(14);
     } else if (type === 'berserker_rage') {
-      // Guts' Berserker Beast Armor: Blood-red pulsing vignette, invulnerability for 6.0s,
-      // and colossal CLANG ground ruptures
-      player.isInvulnerable = true;
+      // Guts' Berserker Beast Armor: Blood-red pulsing vignette, high mitigation,
+      // unstoppable immunity to stun/knockback, life steal, and colossal CLANG ground ruptures
+      player.isInvulnerable = false; // Damageable so Life Steal can restore lost HP!
       player.isBerserk = true;
       player.berserkTimer = 6.0;
       player.currentSpeed = player.baseSpeed * 1.55;

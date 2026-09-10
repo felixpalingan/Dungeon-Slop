@@ -245,11 +245,11 @@ export class CombatSystem {
         // Guts: Berserker Beast Armor Unleashed!
         player.isBerserk = true;
         player.berserkTimer = 6.0;
-        player.isInvulnerable = true;
+        player.isInvulnerable = false; // Damageable with high mitigation so Life Steal can restore HP!
         player.currentSpeed = player.baseSpeed * 1.55;
         this.audio.playBerserkRoar();
         this.audio.playClang();
-        this.particles.spawnComicText(player.x, player.y - 36, 'BERSERKER RAGE! 🩸 +DMG +ATK SPEED', '#ef4444');
+        this.particles.spawnComicText(player.x, player.y - 36, 'BERSERKER RAGE! 🩸 LIFE STEAL + UNSTOPPABLE', '#ef4444');
         if (triggerCinematicCallback) {
           triggerCinematicCallback('berserker_rage', player);
         }

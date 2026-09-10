@@ -130,6 +130,7 @@ export class Player {
   }
 
   applyKnockback(kx, ky) {
+    if (this.isBerserk) return; // Berserker armor ignores all knockback!
     this.knockbackVx = kx;
     this.knockbackVy = ky;
   }
@@ -216,11 +217,15 @@ export class Player {
       const mitigation = this.equipment?.offhand?.blockMitigation || 0.6;
       finalDamage = Math.max(1, Math.round(amount * (1 - mitigation)));
     }
+    if (this.isBerserk) {
+      // Berserker armor absorbs 35% damage
+      finalDamage = Math.max(1, Math.round(finalDamage * 0.65));
+    }
     this.hp = Math.max(1, this.hp - finalDamage);
-    if (knockback > 0) {
+    if (knockback > 0 && !this.isBerserk) {
       this.applyKnockback(Math.cos(angle) * knockback, Math.sin(angle) * knockback);
     }
-    return { damage: finalDamage, isBlocked };
+    return { damage: finalDamage, isBlocked, isBerserk: this.isBerserk };
   }
 
   update(dt, input, bounds = { minX: -580, minY: -580, maxX: 580, maxY: 580 }) {
