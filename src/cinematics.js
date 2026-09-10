@@ -24,7 +24,7 @@ export class CinematicManager {
     }
   }
 
-  trigger(type, player) {
+  trigger(type, player, isRemote = false) {
     const now = performance.now() / 1000;
 
     if (type === 'hollow_purple') {
@@ -35,6 +35,7 @@ export class CinematicManager {
         timer: 1.4,
         duration: 1.4,
         caster: player,
+        isRemote: !!isRemote,
         x: player.x,
         y: player.y,
         angle: player.angle
@@ -46,6 +47,7 @@ export class CinematicManager {
       this.projectiles.push({
         type: 'hollow_purple',
         caster: player,
+        isRemote: !!isRemote,
         x: player.x,
         y: player.y,
         vx: Math.cos(player.angle) * speed,
@@ -65,6 +67,7 @@ export class CinematicManager {
         timer: 1.2,
         duration: 1.2,
         caster: player,
+        isRemote: !!isRemote,
         x: player.x,
         y: player.y,
         angle: player.angle
@@ -76,6 +79,7 @@ export class CinematicManager {
       this.projectiles.push({
         type: 'world_cutting_slash',
         caster: player,
+        isRemote: !!isRemote,
         x: player.x,
         y: player.y,
         vx: Math.cos(player.angle) * speed,
@@ -93,6 +97,7 @@ export class CinematicManager {
         timer: 1.2,
         duration: 1.2,
         caster: player,
+        isRemote: !!isRemote,
         x: player.x,
         y: player.y,
         angle: player.angle
@@ -102,12 +107,15 @@ export class CinematicManager {
       // Guts' Berserker Beast Armor: Blood-red pulsing vignette, invulnerability for 6.0s,
       // and colossal CLANG ground ruptures
       player.isInvulnerable = true;
-      player.currentSpeed = player.baseSpeed * 1.5;
+      player.isBerserk = true;
+      player.berserkTimer = 6.0;
+      player.currentSpeed = player.baseSpeed * 1.55;
       this.activeCinematics.push({
         type: 'berserker_rage',
         timer: 6.0,
         duration: 6.0,
         caster: player,
+        isRemote: !!isRemote,
         player
       });
       this.addScreenShake(22);
@@ -115,6 +123,7 @@ export class CinematicManager {
       setTimeout(() => {
         if (player) {
           player.isInvulnerable = false;
+          player.isBerserk = false;
           player.currentSpeed = player.baseSpeed;
         }
       }, 6000);
@@ -124,8 +133,9 @@ export class CinematicManager {
       this.projectiles.push({
         type: 'spartan_kick',
         caster: player,
-        x: player.x + Math.cos(player.angle) * 32,
-        y: player.y + Math.sin(player.angle) * 32,
+        isRemote: !!isRemote,
+        x: player.x + Math.cos(player.angle) * 36,
+        y: player.y + Math.sin(player.angle) * 36,
         vx: Math.cos(player.angle) * 780,
         vy: Math.sin(player.angle) * 780,
         radius: 44,
@@ -142,28 +152,30 @@ export class CinematicManager {
         this.projectiles.push({
           type: 'dismantle',
           caster: player,
+          isRemote: !!isRemote,
           x: player.x,
           y: player.y,
           vx: Math.cos(spreadAngle) * 720,
           vy: Math.sin(spreadAngle) * 720,
-          angle: spreadAngle,
-          damage: 75,
-          life: 0.55
+          radius: 36,
+          damage: 55,
+          life: 0.38,
+          angle: spreadAngle
         });
       }
-      this.addScreenShake(6);
     } else if (type === 'cannon_arm') {
-      // Guts' Base Q Cannon Arm: Massive explosive blast in front of player
-      this.addScreenShake(14);
+      // Guts' Base Q Prosthetic Arm Cannon: High explosive projectile
+      this.addScreenShake(20);
       this.projectiles.push({
         type: 'cannon_arm',
         caster: player,
-        x: player.x + Math.cos(player.angle) * 35,
-        y: player.y + Math.sin(player.angle) * 35,
-        vx: Math.cos(player.angle) * 580,
-        vy: Math.sin(player.angle) * 580,
-        radius: 36,
-        damage: 130,
+        isRemote: !!isRemote,
+        x: player.x + Math.cos(player.angle) * 30,
+        y: player.y + Math.sin(player.angle) * 30,
+        vx: Math.cos(player.angle) * 650,
+        vy: Math.sin(player.angle) * 650,
+        radius: 38,
+        damage: 140,
         life: 0.45
       });
     }
@@ -192,8 +204,8 @@ export class CinematicManager {
       const c = this.activeCinematics[cIdx];
       c.timer -= dt;
 
-      // Toji's Inverted Chain Whirlwind continuous hit detection locked on caster
-      if (c.type === 'inverted_chain_rampage') {
+      // Toji's Inverted Chain Whirlwind continuous hit detection locked on caster (LOCAL only!)
+      if (c.type === 'inverted_chain_rampage' && !c.isRemote) {
         const posX = c.caster ? c.caster.x : c.x;
         const posY = c.caster ? c.caster.y : c.y;
         for (const target of targets) {
@@ -237,18 +249,20 @@ export class CinematicManager {
         proj.radius = Math.min(proj.maxRadius, proj.radius + 45 * dt);
       }
 
-      // Check collision with targets (Dummy, etc.)
-      for (const target of targets) {
-        if (!target || target === proj.caster) continue;
-        const dx = target.x - proj.x;
-        const dy = target.y - proj.y;
-        const dist = Math.hypot(dx, dy);
-        const hitRadius = (proj.radius || (proj.width ? proj.width * 0.5 : 40)) + (target.radius || 24);
+      // Check collision with targets (ONLY local projectiles, NEVER remote projectiles!)
+      if (!proj.isRemote) {
+        for (const target of targets) {
+          if (!target || target === proj.caster) continue;
+          const dx = target.x - proj.x;
+          const dy = target.y - proj.y;
+          const dist = Math.hypot(dx, dy);
+          const hitRadius = (proj.radius || (proj.width ? proj.width * 0.5 : 40)) + (target.radius || 24);
 
-        if (dist <= hitRadius && !proj.hasHit) {
-          proj.hasHit = true;
-          if (onHitCallback) {
-            onHitCallback(target, proj);
+          if (dist <= hitRadius && !proj.hasHit) {
+            proj.hasHit = true;
+            if (onHitCallback) {
+              onHitCallback(target, proj);
+            }
           }
         }
       }

@@ -25,7 +25,10 @@ export class CombatSystem {
 
     let reach = weapon.reach || 55;
     let arcHalfAngle = weapon.hands === 2 ? Math.PI * 0.48 : Math.PI * 0.35;
-    const baseDamage = weapon.damage || 15;
+    let baseDamage = weapon.damage || 15;
+    if (attacker.isBerserk) {
+      baseDamage = Math.round(baseDamage * 2.2); // Berserk Mode: +120% Colossal Damage Boost!
+    }
     const isBlue = weapon.visual === 'lapse_blue' || weapon.id === 'lapse_blue';
 
     // Tailor hurtbox reach & arc to match visual weapon animations
@@ -84,6 +87,8 @@ export class CombatSystem {
           let knockback = weapon.hands === 2 ? 520 : 340;
           if (isBlue) {
             knockback = -480; // Suction pull toward Gojo!
+          } else if (attacker.isBerserk) {
+            knockback = 650; // Berserk slams launch enemies far
           }
 
           hits.push({
@@ -94,6 +99,96 @@ export class CombatSystem {
             isPull: isBlue,
             angle: attacker.angle,
             knockback
+          });
+        }
+      }
+    }
+
+    return hits;
+  }
+
+  /**
+   * Executes an off-hand attack or special ability (Right-click).
+   * Supports Gojo's Reversal Red (massive repulsive knockback blast),
+   * Sukuna's Hiten Fire Spear, Tome rune pulse, or standard slap/shield bash.
+   */
+  performOffhandAttack(attacker, targets = []) {
+    const offhand = attacker.equipment?.offhand;
+    const offhandVisual = offhand?.visual;
+
+    let reach = 55;
+    let arcHalfAngle = Math.PI * 0.40;
+    let baseDamage = 15;
+    let knockback = 380;
+    let attackType = 'slap';
+
+    if (offhandVisual === 'reversal_red') {
+      // Gojo's Cursed Technique Reversal: RED
+      // Maximum repulsive force: Violently blast targets backwards!
+      reach = 115;
+      arcHalfAngle = Math.PI * 0.48; // 86° blast cone
+      baseDamage = 88;
+      knockback = 1080; // Colossal repulsive push!
+      attackType = 'reversal_red';
+    } else if (offhandVisual === 'sukuna_hiten') {
+      reach = 95;
+      arcHalfAngle = Math.PI * 0.35;
+      baseDamage = 65;
+      knockback = 520;
+      attackType = 'sukuna_hiten';
+    } else if (offhandVisual === 'tome') {
+      reach = 85;
+      arcHalfAngle = Math.PI * 0.50;
+      baseDamage = 35;
+      knockback = 480;
+      attackType = 'tome';
+    } else if (offhandVisual && offhandVisual.includes('shield')) {
+      reach = 58;
+      arcHalfAngle = Math.PI * 0.42;
+      baseDamage = 20;
+      knockback = 580; // Shield bash push
+      attackType = 'shield_bash';
+    }
+
+    if (attacker.isBerserk) {
+      baseDamage = Math.round(baseDamage * 2.0);
+    }
+
+    let hits = [];
+
+    for (const target of targets) {
+      if (!target || target === attacker) continue;
+
+      const dx = target.x - attacker.x;
+      const dy = target.y - attacker.y;
+      const dist = Math.hypot(dx, dy);
+
+      const maxHitDist = (attacker.radius || 22) + reach + (target.radius || 24);
+      if (dist <= maxHitDist) {
+        const angleToTarget = Math.atan2(dy, dx);
+        let angleDiff = angleToTarget - attacker.angle;
+
+        while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
+        while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
+
+        if (Math.abs(angleDiff) <= arcHalfAngle) {
+          const isCrit = Math.random() < (attacker.equipment?.helmet?.critChance || 0.08);
+          const finalDamage = Math.round(baseDamage * (isCrit ? 1.85 : (0.9 + Math.random() * 0.2)));
+
+          const isBlocked = target.isBlocking && Math.abs(angleDiff) > Math.PI * 0.5;
+          const damageTaken = isBlocked
+            ? Math.round(finalDamage * (1 - (target.equipment?.offhand?.blockMitigation || 0.6)))
+            : finalDamage;
+
+          hits.push({
+            target,
+            damage: damageTaken,
+            isCrit,
+            isBlocked,
+            isPull: false,
+            angle: attacker.angle,
+            knockback,
+            attackType
           });
         }
       }
@@ -148,9 +243,13 @@ export class CombatSystem {
         return true;
       } else if (setBonus.ultimateQ === 'berserker_rage') {
         // Guts: Berserker Beast Armor Unleashed!
+        player.isBerserk = true;
+        player.berserkTimer = 6.0;
+        player.isInvulnerable = true;
+        player.currentSpeed = player.baseSpeed * 1.55;
         this.audio.playBerserkRoar();
         this.audio.playClang();
-        this.particles.spawnComicText(player.x, player.y - 36, 'BERSERKER RAGE!', '#ef4444');
+        this.particles.spawnComicText(player.x, player.y - 36, 'BERSERKER RAGE! 🩸 +DMG +ATK SPEED', '#ef4444');
         if (triggerCinematicCallback) {
           triggerCinematicCallback('berserker_rage', player);
         }

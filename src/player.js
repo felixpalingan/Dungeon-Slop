@@ -57,6 +57,10 @@ export class Player {
     this.isStunned = false;
     this.stunTimer = 0;
 
+    // Berserk Beast Armor state (Guts Set Bonus)
+    this.isBerserk = false;
+    this.berserkTimer = 0;
+
     // Lunge momentum physics (e.g. Spartan Kick forward thrust)
     this.lungeTimer = 0;
     this.lungeDuration = 0;
@@ -85,9 +89,10 @@ export class Player {
     if (this.isStunned || this.isAttacking || this.attackCooldownTimer > 0) return false;
     this.isAttacking = true;
     const weapon = this.equipment?.weapon;
-    const speed = weapon?.speed || 1.0;
-    this.attackDuration = Math.max(0.12, 0.22 / speed);
-    this.attackCooldownTimer = Math.max(0.18, 0.32 / speed);
+    let speed = weapon?.speed || 1.0;
+    if (this.isBerserk) speed *= 1.85; // Berserk rage grants +85% attack speed!
+    this.attackDuration = Math.max(0.08, 0.22 / speed);
+    this.attackCooldownTimer = Math.max(0.12, 0.35 / speed);
     this.attackTimer = this.attackDuration;
     this.attackProgress = 0;
     return true;
@@ -102,7 +107,9 @@ export class Player {
     return true;
   }
 
-  startLunge(angle, speed = 850, duration = 0.26) {
+  startLunge(angle, speed = 880, duration = 0.28) {
+    this.isStunned = false; // Lunge immediately clears any stun
+    this.stunTimer = 0;
     this.lungeTimer = duration;
     this.lungeDuration = duration;
     this.lungeVx = Math.cos(angle) * speed;
@@ -110,6 +117,8 @@ export class Player {
   }
 
   applyStun(duration = 2.5) {
+    // Cannot be stunned while lunging, berserk, or invulnerable
+    if (this.isInvulnerable || this.isBerserk || this.lungeTimer > 0) return;
     this.isStunned = true;
     this.stunTimer = Math.max(this.stunTimer, duration);
     this.isAttacking = false;
@@ -198,8 +207,42 @@ export class Player {
     this.attackCooldownTimer = Math.max(0, this.attackCooldownTimer - dt);
     this.slapCooldownTimer = Math.max(0, this.slapCooldownTimer - dt);
 
-    // Stun check
-    if (this.isStunned) {
+    // Berserk Rage timer & blood-red trailing after-images
+    if (this.isBerserk) {
+      this.berserkTimer -= dt;
+      if (Math.random() < 0.45) {
+        this.afterImages.push({
+          x: this.x,
+          y: this.y,
+          angle: this.angle,
+          color: '#ef4444',
+          alpha: 0.65
+        });
+      }
+      if (this.berserkTimer <= 0) {
+        this.isBerserk = false;
+        this.isInvulnerable = false;
+        this.berserkTimer = 0;
+        this.currentSpeed = this.baseSpeed;
+      }
+    }
+
+    // 1. Lunge physics (Spartan Kick forward thrust has top priority over stun!)
+    if (this.lungeTimer > 0) {
+      this.lungeTimer -= dt;
+      this.vx = this.lungeVx;
+      this.vy = this.lungeVy;
+      if (Math.random() < 0.6) {
+        this.afterImages.push({
+          x: this.x,
+          y: this.y,
+          angle: this.angle,
+          color: '#38bdf8',
+          alpha: 0.55
+        });
+      }
+    } else if (this.isStunned) {
+      // Stun check only when not lunging
       this.stunTimer -= dt;
       if (this.stunTimer <= 0) {
         this.isStunned = false;
@@ -214,12 +257,12 @@ export class Player {
       return;
     }
 
-    // 1. Mouse Aiming angle
+    // 2. Mouse Aiming angle
     const screenCenterX = window.innerWidth / 2;
     const screenCenterY = window.innerHeight / 2;
     this.angle = Math.atan2(input.mouse.screenY - screenCenterY, input.mouse.screenX - screenCenterX);
 
-    // 2. Weapon Attack Animation update
+    // 3. Weapon Attack Animation update
     if (this.isAttacking) {
       this.attackTimer -= dt;
       this.attackProgress = 1 - Math.max(0, this.attackTimer / this.attackDuration);
@@ -229,7 +272,7 @@ export class Player {
       }
     }
 
-    // 3. Slap Animation update
+    // 4. Slap Animation update
     if (this.isSlapping) {
       this.slapTimer -= dt;
       this.slapProgress = 1 - Math.max(0, this.slapTimer / this.slapDuration);
@@ -239,20 +282,9 @@ export class Player {
       }
     }
 
-    // Lunge physics (e.g. Spartan Kick forward thrust)
+    // 5. Movement states (Lunge, Roll, or Normal WASD)
     if (this.lungeTimer > 0) {
-      this.lungeTimer -= dt;
-      this.vx = this.lungeVx;
-      this.vy = this.lungeVy;
-      if (Math.random() < 0.6) {
-        this.afterImages.push({
-          x: this.x,
-          y: this.y,
-          angle: this.angle,
-          color: '#38bdf8',
-          alpha: 0.55
-        });
-      }
+      // Velocity is governed by Spartan Kick / lunge thrust
     } else if (this.isRolling) {
       // 4. Roll / Dash state
       this.rollTimer -= dt;

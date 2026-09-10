@@ -423,6 +423,7 @@ function broadcastMyState() {
     hp: player.hp,
     maxHp: player.maxHp,
     isStunned: player.isStunned,
+    isBerserk: player.isBerserk,
     equipment: player.equipment
   };
 
@@ -469,7 +470,7 @@ network.onMessageReceived = (fromPeerId, msg) => {
       particles.spawnComicText(player.x, player.y - 20, 'BONK!', '#ff0055');
     }
   } else if (msg.type === 'DUMMY_HIT') {
-    dummy.takeHit(msg.damage, msg.angle, msg.isPull ? -480 : 0);
+    dummy.takeHit(msg.damage, msg.angle, msg.knockback || (msg.isPull ? -480 : 0));
     if (msg.isPull) {
       dummy.pullTowards(msg.pullX || 0, msg.pullY || 0, 45);
     }
@@ -485,7 +486,8 @@ network.onMessageReceived = (fromPeerId, msg) => {
       || network.remotePlayers.get(fromPeerId) 
       || { x: msg.x, y: msg.y, angle: msg.angle };
 
-    cinematics.trigger(msg.ultimateType, caster);
+    // Remote cinematics are purely visual on other peers (isRemote = true)
+    cinematics.trigger(msg.ultimateType, caster, true);
     if (msg.ultimateType === 'hollow_purple') audio.playHollowPurple();
     else if (msg.ultimateType === 'world_cutting_slash') audio.playWorldCuttingSlash();
     else if (msg.ultimateType === 'inverted_chain_rampage') audio.playChainRampage();
@@ -623,6 +625,61 @@ function handleAttacks() {
   }
 }
 
+function handleOffhandAttack() {
+  const targets = [dummy, ...network.remotePlayers.values()];
+  const hits = combat.performOffhandAttack(player, targets);
+
+  for (const hit of hits) {
+    if (hit.target === dummy) {
+      dummy.takeHit(hit.damage, hit.angle, hit.knockback);
+
+      if (hit.attackType === 'reversal_red') {
+        audio.playRepulsionBurst();
+        cinematics.addScreenShake(12);
+        particles.spawnComicText(dummy.x, dummy.y - 24, `REVERSAL RED! -${hit.damage}`, '#ff2a5f');
+        particles.spawnDashBurst(dummy.x, dummy.y, hit.angle, '#ff2a5f');
+      } else if (hit.attackType === 'sukuna_hiten') {
+        audio.playFireSpear();
+        particles.spawnComicText(dummy.x, dummy.y - 24, `FIRE HITEN! -${hit.damage}`, '#f97316');
+      } else if (hit.attackType === 'shield_bash') {
+        audio.playHammerSmash();
+        particles.spawnComicText(dummy.x, dummy.y - 24, `SHIELD BASH! -${hit.damage}`, '#38bdf8');
+      } else {
+        audio.playBonk();
+        particles.spawnComicText(dummy.x, dummy.y - 24, `WHACK! -${hit.damage}`, '#ff3366');
+      }
+
+      const hitMsg = {
+        type: 'DUMMY_HIT',
+        damage: hit.damage,
+        angle: hit.angle,
+        isCrit: hit.isCrit,
+        knockback: hit.knockback,
+        isPull: false
+      };
+      if (network.isHost) network.broadcast(hitMsg);
+      else network.sendToHost(hitMsg);
+    } else {
+      for (const [peerId, remote] of network.remotePlayers.entries()) {
+        if (remote === hit.target) {
+          const kx = Math.cos(hit.angle) * hit.knockback;
+          const ky = Math.sin(hit.angle) * hit.knockback;
+
+          const slapMsg = { type: 'SLAP_KNOCKBACK', targetPeerId: peerId, kx, ky };
+          if (network.isHost) network.broadcast(slapMsg);
+          else network.sendToHost(slapMsg);
+
+          audio.playBonk();
+          const effectLabel = hit.attackType === 'reversal_red'
+            ? 'REPULSED! 💥'
+            : (hit.isBlocked ? 'BLOCKED!' : 'WHACK!');
+          particles.spawnComicText(remote.x, remote.y - 20, effectLabel, '#ff2a5f');
+        }
+      }
+    }
+  }
+}
+
 // Cinematic ultimate trigger handler
 function onTriggerCinematic(ultimateType, triggeringPlayer) {
   cinematics.trigger(ultimateType, triggeringPlayer);
@@ -699,6 +756,7 @@ function gameLoop(now) {
   // Update Cinematics & Projectiles (collision with training dummy and remote peers)
   const cinematicTargets = [dummy, ...network.remotePlayers.values()];
   cinematics.update(dt, cinematicTargets, (target, proj) => {
+    if (target === player) return;
     if (target === dummy) {
       dummy.takeHit(proj.damage, Math.atan2(proj.vy || 0, proj.vx || 0), proj.isStun ? 0 : 350);
       if (proj.isStun) {
@@ -804,7 +862,7 @@ function gameLoop(now) {
           '#ff0055'
         );
       }
-      handleAttacks();
+      handleOffhandAttack();
       broadcastMyState();
     }
   }

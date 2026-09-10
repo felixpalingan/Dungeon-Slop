@@ -124,6 +124,7 @@ export class Renderer {
       attackProgress = 0,
       isSlapping = false,
       slapProgress = 0,
+      isBerserk = false,
       equipment = {}
     } = entity;
 
@@ -142,6 +143,20 @@ export class Renderer {
 
     // Rotate facing mouse direction
     ctx.rotate(angle);
+
+    // Berserker rage demonic crimson aura
+    if (isBerserk) {
+      ctx.save();
+      const pulse = Math.sin(Date.now() * 0.015) * 3;
+      ctx.strokeStyle = '#ef4444';
+      ctx.lineWidth = 4 + pulse;
+      ctx.shadowColor = '#dc2626';
+      ctx.shadowBlur = 20;
+      ctx.beginPath();
+      ctx.arc(0, 0, radius + 8 + pulse, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
 
     // Rolling after-image/blur outline
     if (isRolling) {
