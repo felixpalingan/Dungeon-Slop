@@ -71,6 +71,16 @@ export class Player {
     this.lungeVx = 0;
     this.lungeVy = 0;
 
+    // Levi Ackerman ODM Gear State (Fanny MLBB Mechanics)
+    this.isOdmMode = false;
+    this.odmGas = 100;
+    this.maxOdmGas = 100;
+    this.activeCables = [];
+    this.isAirborne = false;
+    this.groundedTimer = 0;
+    this.spinTimer = 0;
+    this.lastSliceMap = new Map();
+
     // Shield Blocking state
     this.isBlocking = false;
 
@@ -108,6 +118,38 @@ export class Player {
     this.slapTimer = this.slapDuration;
     this.slapCooldownTimer = 0.24;
     this.slapProgress = 0;
+    return true;
+  }
+
+  /**
+   * Fires a single ODM high-tension cable towards anchor (Fanny MLBB mechanic)
+   */
+  fireOdmCable(anchorX, anchorY, audio = null, particles = null) {
+    if (this.odmGas < 20) return false;
+    this.odmGas = Math.max(0, this.odmGas - 20);
+
+    // Max 2 active cables: if already 2, detach oldest
+    if (this.activeCables.length >= 2) {
+      this.activeCables.shift();
+    }
+
+    this.activeCables.push({
+      anchorX,
+      anchorY,
+      life: 2.2,
+      id: Date.now() + Math.random()
+    });
+
+    this.isAirborne = true;
+    this.groundedTimer = 0;
+
+    if (audio) {
+      audio.playGrappleWireLaunch?.();
+      audio.playOdmGasHiss?.();
+    }
+    if (particles) {
+      particles.spawnDashBurst?.(this.x, this.y, this.angle + Math.PI, '#ffffff');
+    }
     return true;
   }
 
@@ -319,8 +361,107 @@ export class Player {
       }
     }
 
-    // 5. Movement states (Lunge, Roll, or Normal WASD)
-    if (this.lungeTimer > 0) {
+    // Update spin timer
+    if (this.spinTimer > 0) {
+      this.spinTimer -= dt;
+    }
+
+    // --- ODM CABLE & AIRBORNE PHYSICS ---
+    if (this.isAirborne && this.activeCables.length > 0) {
+      // Update cable lifetimes
+      for (const cable of this.activeCables) {
+        cable.life -= dt;
+      }
+
+      // Detach cables if within 45px of anchor or life expired
+      this.activeCables = this.activeCables.filter(c => {
+        const dist = Math.hypot(c.anchorX - this.x, c.anchorY - this.y);
+        return c.life > 0 && dist > 45;
+      });
+
+      if (this.activeCables.length === 1) {
+        // 1 cable active: direct pull towards anchor
+        const c = this.activeCables[0];
+        const dx = c.anchorX - this.x;
+        const dy = c.anchorY - this.y;
+        const dist = Math.hypot(dx, dy);
+        if (dist > 1) {
+          const dirX = dx / dist;
+          const dirY = dy / dist;
+          const speed = 1150;
+          this.vx = dirX * speed;
+          this.vy = dirY * speed;
+          this.angle = Math.atan2(dirY, dirX);
+        }
+      } else if (this.activeCables.length === 2) {
+        // 2 cables active: Vector sum pull (Signature Fanny MLBB slingshot flight)
+        const c1 = this.activeCables[0];
+        const c2 = this.activeCables[1];
+        const d1x = c1.anchorX - this.x;
+        const d1y = c1.anchorY - this.y;
+        const dist1 = Math.hypot(d1x, d1y);
+
+        const d2x = c2.anchorX - this.x;
+        const d2y = c2.anchorY - this.y;
+        const dist2 = Math.hypot(d2x, d2y);
+
+        const u1x = dist1 > 1 ? d1x / dist1 : 0;
+        const u1y = dist1 > 1 ? d1y / dist1 : 0;
+        const u2x = dist2 > 1 ? d2x / dist2 : 0;
+        const u2y = dist2 > 1 ? d2y / dist2 : 0;
+
+        const sumX = u1x + u2x;
+        const sumY = u1y + u2y;
+        const sumLen = Math.hypot(sumX, sumY);
+
+        let moveDirX = u2x;
+        let moveDirY = u2y;
+        if (sumLen > 0.05) {
+          moveDirX = sumX / sumLen;
+          moveDirY = sumY / sumLen;
+        }
+
+        const speed = 1400;
+        this.vx = moveDirX * speed;
+        this.vy = moveDirY * speed;
+        this.angle = Math.atan2(moveDirY, moveDirX);
+      }
+
+      // Emerald & white steam after-images
+      if (Math.random() < 0.65) {
+        this.afterImages.push({
+          x: this.x,
+          y: this.y,
+          angle: this.angle,
+          color: '#10b981',
+          alpha: 0.55
+        });
+      }
+    } else if (this.activeCables.length === 0) {
+      if (this.isAirborne) {
+        // Glide deceleration after cables detach
+        this.vx *= Math.pow(0.005, dt);
+        this.vy *= Math.pow(0.005, dt);
+        const curSpeed = Math.hypot(this.vx, this.vy);
+        if (curSpeed < 140) {
+          this.groundedTimer += dt;
+          if (this.groundedTimer >= 0.12) {
+            this.isAirborne = false;
+            this.groundedTimer = 0;
+          }
+        }
+      } else {
+        // Grounded: Gas recharges rapidly while on foot!
+        if (this.odmGas < this.maxOdmGas) {
+          this.odmGas = Math.min(this.maxOdmGas, this.odmGas + 60 * dt);
+        }
+      }
+    }
+
+    // 5. Movement states (ODM Cables, Lunge, Roll, or Normal WASD)
+    if (this.isAirborne && this.activeCables.length > 0) {
+      // Velocity is governed by ODM cable vector pull!
+    } else if (this.lungeTimer > 0) {
       // Velocity is governed by Spartan Kick / lunge thrust
     } else if (this.isRolling) {
       // 4. Roll / Dash state
@@ -428,6 +569,26 @@ export class Player {
     if (staminaFill) {
       const staminaPct = Math.max(0, Math.min(100, (this.stamina / this.maxStamina) * 100));
       staminaFill.style.width = `${staminaPct}%`;
+    }
+
+    // ODM Gas Bar
+    const gasContainer = document.getElementById('hud-gas-container');
+    const gasFill = document.getElementById('hud-gas-fill');
+    const gasText = document.getElementById('hud-gas-text');
+
+    const isLeviActive = this.isOdmMode || this.equipment?.weapon?.visual === 'dual_snap_blades' || this.equipment?.chest?.visual === 'odm_harness';
+    if (gasContainer) {
+      if (isLeviActive) {
+        gasContainer.classList.remove('hidden');
+        if (gasFill) {
+          gasFill.style.width = `${Math.max(0, Math.min(100, (this.odmGas / this.maxOdmGas) * 100))}%`;
+        }
+        if (gasText) {
+          gasText.textContent = `ODM GAS: ${Math.round(this.odmGas)}% ${this.isOdmMode ? '[ACTIVE]' : '[STANDBY]'}`;
+        }
+      } else {
+        gasContainer.classList.add('hidden');
+      }
     }
   }
 }

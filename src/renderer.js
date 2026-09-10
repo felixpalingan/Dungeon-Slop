@@ -104,6 +104,57 @@ export class Renderer {
   }
 
   /**
+   * Draws active ODM high-tension cables connecting from character hips to anchor points
+   */
+  drawOdmCables(entity) {
+    if (!entity.activeCables || entity.activeCables.length === 0) return;
+    const ctx = this.ctx;
+    ctx.save();
+
+    for (let i = 0; i < entity.activeCables.length; i++) {
+      const cable = entity.activeCables[i];
+      // Side: Left hip (-16px) for cable 0, Right hip (+16px) for cable 1
+      const side = (i === 0) ? -1 : 1;
+      const hipOffset = side * 16;
+      const hipX = entity.x + Math.cos(entity.angle + Math.PI / 2) * hipOffset;
+      const hipY = entity.y + Math.sin(entity.angle + Math.PI / 2) * hipOffset;
+
+      // Outer steel cable
+      ctx.strokeStyle = '#64748b';
+      ctx.lineWidth = 2.4;
+      ctx.beginPath();
+      ctx.moveTo(hipX, hipY);
+      ctx.lineTo(cable.anchorX, cable.anchorY);
+      ctx.stroke();
+
+      // Shiny core wire
+      ctx.strokeStyle = '#f8fafc';
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.moveTo(hipX, hipY);
+      ctx.lineTo(cable.anchorX, cable.anchorY);
+      ctx.stroke();
+
+      // Grapple Hook / Piton anchored at target
+      ctx.fillStyle = '#334155';
+      ctx.strokeStyle = '#10b981';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(cable.anchorX, cable.anchorY, 5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+
+      // Spark / anchor impact head
+      ctx.fillStyle = '#38bdf8';
+      ctx.beginPath();
+      ctx.arc(cable.anchorX, cable.anchorY, 2.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    ctx.restore();
+  }
+
+  /**
    * Draws character with full 6-slot procedural 2D visual equipment:
    * - Helmet: Horns, Visor, Cowl
    * - Chestpiece: Leather vest, Spiked cuirass, Celestial gold mantle
@@ -130,6 +181,11 @@ export class Renderer {
 
     const ctx = this.ctx;
 
+    // Draw high-tension ODM Grapple Cables in world coordinates before entity translation
+    if (entity.activeCables && entity.activeCables.length > 0) {
+      this.drawOdmCables(entity);
+    }
+
     ctx.save();
     ctx.translate(x, y);
 
@@ -143,6 +199,24 @@ export class Renderer {
 
     // Rotate facing mouse direction
     ctx.rotate(angle);
+
+    // Levi Ackerman ODM Whirlwind Spin on Enemy Hit
+    if (entity.spinTimer && entity.spinTimer > 0) {
+      const spinProg = Math.max(0, entity.spinTimer / 0.22);
+      const spinRot = (1 - spinProg) * Math.PI * 4;
+      ctx.rotate(spinRot);
+
+      // Emerald razor whirlwind slash ring
+      ctx.save();
+      ctx.strokeStyle = '#10b981';
+      ctx.lineWidth = 3.5;
+      ctx.shadowColor = '#34d399';
+      ctx.shadowBlur = 16;
+      ctx.beginPath();
+      ctx.arc(0, 0, radius + 22, spinRot * 2, spinRot * 2 + Math.PI * 1.5);
+      ctx.stroke();
+      ctx.restore();
+    }
 
     // Berserker rage demonic crimson aura
     if (isBerserk) {
@@ -404,12 +478,27 @@ export class Renderer {
     // --- HANDS & WEAPONS ---
     const handRadius = 7;
     const handDistance = radius + 8;
+    const isDualWield = weapon?.visual === 'dual_snap_blades';
 
-    // LEFT HAND (Off-hand / Shield / 2H Grip)
+    // LEFT HAND (Off-hand / Shield / 2H Grip / Dual Wield)
     let leftHandX = 10;
     let leftHandY = -handDistance;
+    let leftBladeAngle = 0;
 
-    if (is2H) {
+    if (isDualWield) {
+      // True Dual Wielding: Left hand holds Left Snap Blade on the left side
+      leftHandX = 10;
+      leftHandY = -handDistance;
+      leftBladeAngle = 0;
+
+      if (isAttacking && attackProgress > 0 && attackProgress < 1) {
+        const p = attackProgress;
+        const leftCrossArc = Math.PI * 0.48 - p * Math.PI * 1.35;
+        leftHandX = Math.cos(leftCrossArc) * (handDistance + 5);
+        leftHandY = Math.sin(leftCrossArc) * (handDistance + 5);
+        leftBladeAngle = leftCrossArc - Math.PI * 0.35;
+      }
+    } else if (is2H) {
       // Both hands grip the heavy 2-handed weapon!
       leftHandX = 16;
       leftHandY = 4;
@@ -423,13 +512,46 @@ export class Renderer {
       leftHandY += thrust * 0.3;
     }
 
-    // Draw Left Hand & Off-hand if not 2-handed
-    if (!is2H) {
+    // Draw Left Hand & Off-hand if not 2-handed (or if dual-wielding)
+    if (!is2H || isDualWield) {
       ctx.save();
       ctx.translate(leftHandX, leftHandY);
 
-      // Off-hand item visual
-      if (offhand) {
+      if (isDualWield) {
+        // Levi's Left Snap Blade held in left hand!
+        ctx.save();
+        ctx.rotate(leftBladeAngle);
+
+        ctx.fillStyle = '#f8fafc';
+        ctx.strokeStyle = '#94a3b8';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(0, -2.5);
+        ctx.lineTo(38, -2.5);
+        ctx.lineTo(44, 0); // angled snap blade tip
+        ctx.lineTo(38, 2.5);
+        ctx.lineTo(0, 2.5);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        // Segmented snap cutter lines
+        ctx.strokeStyle = '#cbd5e1';
+        ctx.lineWidth = 1;
+        for (let s = 10; s <= 32; s += 8) {
+          ctx.beginPath();
+          ctx.moveTo(s, -2.5);
+          ctx.lineTo(s - 2.5, 2.5);
+          ctx.stroke();
+        }
+
+        // Brake trigger handle grip
+        ctx.fillStyle = '#1e293b';
+        ctx.fillRect(-6, -3, 6, 6);
+        ctx.strokeStyle = '#475569';
+        ctx.strokeRect(-6, -3, 6, 6);
+        ctx.restore();
+      } else if (offhand) {
         if (offhand.visual === 'reversal_red') {
           // Gojo's Reversal Red floating glowing sphere
           const pulseRed = (isSlapping && slapProgress > 0 && slapProgress < 1)
@@ -591,8 +713,8 @@ export class Renderer {
     ctx.translate(rightHandX, rightHandY);
     ctx.rotate(swordAngle);
 
-    // If 2H weapon, draw second gripping hand on weapon hilt
-    if (is2H) {
+    // If 2H weapon, draw second gripping hand on weapon hilt (unless dual wielding!)
+    if (is2H && !isDualWield) {
       ctx.save();
       ctx.translate(-4, -6);
       ctx.fillStyle = '#2d3748';
@@ -772,8 +894,7 @@ export class Renderer {
       ctx.fill();
       ctx.stroke();
     } else if (weapon?.visual === 'dual_snap_blades') {
-      // Levi's Dual Ultrahard Steel Snap Blades
-      // Blade 1 (Right hand):
+      // Levi's Dual Ultrahard Steel Snap Blades (Right Blade)
       ctx.fillStyle = '#f8fafc';
       ctx.strokeStyle = '#94a3b8';
       ctx.lineWidth = 1.5;
@@ -802,34 +923,6 @@ export class Renderer {
       ctx.fillRect(-6, -3, 6, 6);
       ctx.strokeStyle = '#475569';
       ctx.strokeRect(-6, -3, 6, 6);
-
-      // Blade 2 (Second blade held in left hand / cross-drawn):
-      ctx.fillStyle = '#f8fafc';
-      ctx.strokeStyle = '#94a3b8';
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.moveTo(-6, -14);
-      ctx.lineTo(32, -14);
-      ctx.lineTo(38, -12);
-      ctx.lineTo(32, -10);
-      ctx.lineTo(-6, -10);
-      ctx.closePath();
-      ctx.fill();
-      ctx.stroke();
-
-      // Blade 2 segments
-      ctx.strokeStyle = '#cbd5e1';
-      ctx.lineWidth = 1;
-      for (let s = 4; s <= 26; s += 8) {
-        ctx.beginPath();
-        ctx.moveTo(s, -14);
-        ctx.lineTo(s - 2.5, -10);
-        ctx.stroke();
-      }
-
-      // Blade 2 trigger grip
-      ctx.fillStyle = '#1e293b';
-      ctx.fillRect(-12, -15, 6, 6);
     } else {
       // Default Rusty Shortsword
       ctx.fillStyle = '#f7fafc';

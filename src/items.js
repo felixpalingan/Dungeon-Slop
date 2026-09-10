@@ -52,7 +52,7 @@ export const SET_DEFINITIONS = {
     color: '#10b981',
     requiredItems: ['scout_hood', 'odm_harness', 'scout_trousers', 'scout_boots', 'dual_snap_blades'],
     ultimateQ: 'levi_grapple_whirlwind',
-    desc: 'Fires dual unlimited-reach grapple cables towards cursor; upon colliding with an enemy, unleashes a high-speed 360° blade whirlwind!'
+    desc: '[Q] Toggles ODM Mode: Left Click shoots maneuvering cables (max 2) with unlimited reach. Pass through enemies with zero collision, slicing and spinning on hit! Gas recharges on landing.'
   }
 };
 

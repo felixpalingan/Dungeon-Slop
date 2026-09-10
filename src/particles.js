@@ -59,6 +59,27 @@ export class ParticleManager {
     }
   }
 
+  /**
+   * Spawns circular blade whirlwind / slice spiral particles (Levi ODM attack)
+   */
+  spawnBladeWhirlwind(x, y, color = '#10b981') {
+    const count = 16;
+    for (let i = 0; i < count; i++) {
+      const angle = (i / count) * Math.PI * 2;
+      const speed = 140 + Math.random() * 90;
+      this.particles.push({
+        x: x + Math.cos(angle) * 14,
+        y: y + Math.sin(angle) * 14,
+        vx: Math.cos(angle + Math.PI * 0.5) * speed,
+        vy: Math.sin(angle + Math.PI * 0.5) * speed,
+        radius: 2.5 + Math.random() * 2,
+        color,
+        alpha: 1.0,
+        life: 0.35
+      });
+    }
+  }
+
   update(dt) {
     // 1. Update particles
     for (let i = this.particles.length - 1; i >= 0; i--) {

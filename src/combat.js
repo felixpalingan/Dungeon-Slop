@@ -259,13 +259,18 @@ export class CombatSystem {
         }
         return true;
       } else if (setBonus.ultimateQ === 'levi_grapple_whirlwind') {
-        // Levi: Dual High-Tension Grapple Wires & 360° Blade Whirlwind!
-        this.audio.playGrappleWireLaunch();
-        this.particles.spawnComicText(player.x, player.y - 36, 'ODM GRAPPLE RUSH! ⚔️', '#10b981');
-        this.particles.spawnDashBurst(player.x, player.y, player.angle + Math.PI, '#ffffff');
-        if (triggerCinematicCallback) {
-          triggerCinematicCallback('levi_grapple_whirlwind', player);
+        // Levi: Toggle ODM Flight & Maneuvering Attack Mode
+        player.isOdmMode = !player.isOdmMode;
+        if (player.isOdmMode) {
+          this.audio.playOdmGasHiss();
+          this.particles.spawnComicText(player.x, player.y - 36, 'ODM MODE: ACTIVE! ⚔️', '#10b981');
+          this.particles.spawnDashBurst(player.x, player.y, player.angle + Math.PI, '#ffffff');
+        } else {
+          player.activeCables = [];
+          player.isAirborne = false;
+          this.particles.spawnComicText(player.x, player.y - 36, 'ODM MODE: OFF', '#94a3b8');
         }
+        player.syncHUD();
         return true;
       }
     }

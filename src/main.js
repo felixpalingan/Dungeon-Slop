@@ -431,6 +431,10 @@ function broadcastMyState() {
     maxHp: player.maxHp,
     isStunned: player.isStunned,
     isBerserk: player.isBerserk,
+    isOdmMode: player.isOdmMode,
+    isAirborne: player.isAirborne,
+    activeCables: player.activeCables,
+    spinTimer: player.spinTimer,
     equipment: player.equipment
   };
 
@@ -870,6 +874,63 @@ function gameLoop(now) {
 
   // Check Set Bonus
   const activeSet = checkSetBonus(player.equipment);
+  if (!activeSet || activeSet.id !== 'levi') {
+    if (player.isOdmMode) {
+      player.isOdmMode = false;
+      player.activeCables = [];
+      player.isAirborne = false;
+    }
+  }
+
+  // --- LEVI ODM AIRBORNE PASS-THROUGH SLICING (HE ONLY SPINS ONCE HE HITS AN ENEMY!) ---
+  if (player.isAirborne && player.activeCables.length > 0) {
+    const nowTime = performance.now();
+    const sliceTargets = [dummy, ...network.remotePlayers.values()];
+    for (const target of sliceTargets) {
+      if (!target) continue;
+      const dist = Math.hypot(target.x - player.x, target.y - player.y);
+      const hitRadius = (target.radius || 22) + player.radius + 20; // ~64px reach
+      if (dist <= hitRadius) {
+        const lastSlice = player.lastSliceMap.get(target) || 0;
+        if (nowTime - lastSlice >= 160) {
+          player.lastSliceMap.set(target, nowTime);
+
+          // Levi only spins once he hits an enemy!
+          player.spinTimer = 0.22;
+          audio.playSnapBladesSlash();
+          cinematics.addScreenShake(8);
+          particles.spawnBladeWhirlwind(target.x, target.y, '#10b981');
+          particles.spawnDashBurst(target.x, target.y, player.angle, '#10b981');
+
+          // Damage calculation (Levi snap blades high-velocity pass-through slice)
+          const isCrit = Math.random() < (player.equipment?.weapon?.critChance || 0.25);
+          let sliceDamage = 62 + Math.floor(Math.random() * 8);
+          if (isCrit) sliceDamage = Math.round(sliceDamage * 1.6);
+
+          if (target === dummy) {
+            dummy.takeHit(sliceDamage, player.angle, 0);
+            const sliceMsg = isCrit ? `CRIT SLICE! -${sliceDamage} 🌀` : `BLADE SLICE! -${sliceDamage} 🌀`;
+            particles.spawnComicText(dummy.x, dummy.y - 30, sliceMsg, isCrit ? '#ff0055' : '#10b981');
+            const hitMsg = { type: 'DUMMY_HIT', damage: sliceDamage, angle: player.angle, isCrit };
+            if (network.isHost) network.broadcast(hitMsg);
+            else network.sendToHost(hitMsg);
+          } else {
+            for (const [peerId, remote] of network.remotePlayers.entries()) {
+              if (remote === target) {
+                const sliceMsg = isCrit ? `CRIT SLICE! -${sliceDamage} 🌀` : `BLADE SLICE! -${sliceDamage} 🌀`;
+                particles.spawnComicText(remote.x, remote.y - 30, sliceMsg, isCrit ? '#ff0055' : '#10b981');
+                const slapMsg = { type: 'SLAP_KNOCKBACK', targetPeerId: peerId, kx: 0, ky: 0 };
+                if (network.isHost) network.broadcast(slapMsg);
+                else network.sendToHost(slapMsg);
+                break;
+              }
+            }
+          }
+          broadcastMyState();
+        }
+      }
+    }
+  }
 
   // Update Cinematics & Projectiles (collision with training dummy, player, and remote peers)
   const cinematicTargets = [dummy, player, ...network.remotePlayers.values()];
@@ -1011,12 +1072,28 @@ function gameLoop(now) {
     broadcastMyState();
   }
 
-  // Left Click Weapon Attack (gated by triggerAttack cooldown & stun)
+  // Left Click: ODM Cable Launch (if in ODM Mode) OR Standard Weapon Attack
   if (input.justPressedLeft && !modalsOpen && !player.isStunned) {
-    if (player.triggerAttack()) {
-      playWeaponAttackSound(player.equipment?.weapon);
-      handleAttacks();
-      broadcastMyState();
+    if (player.isOdmMode && activeSet?.id === 'levi') {
+      // Launch high-tension ODM cable towards cursor in world coordinates
+      const worldMouseX = (input.mouse.screenX - window.innerWidth / 2) + player.x;
+      const worldMouseY = (input.mouse.screenY - window.innerHeight / 2) + player.y;
+
+      const launched = player.fireOdmCable(worldMouseX, worldMouseY, audio, particles);
+      if (launched) {
+        cinematics.addScreenShake(3);
+        player.syncHUD();
+        broadcastMyState();
+      } else {
+        audio.playShieldLock();
+        particles.spawnComicText(player.x, player.y - 32, 'OUT OF GAS! 💨', '#ef4444');
+      }
+    } else {
+      if (player.triggerAttack()) {
+        playWeaponAttackSound(player.equipment?.weapon);
+        handleAttacks();
+        broadcastMyState();
+      }
     }
   }
 

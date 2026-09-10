@@ -132,6 +132,15 @@ html, body {
   box-shadow: 0 0 8px rgba(255, 184, 0, 0.6);
 }
 
+.odm-gas-bar-bg {
+  border-color: rgba(16, 185, 129, 0.4);
+}
+
+.odm-gas-fill {
+  background: linear-gradient(90deg, #059669, #10b981, #34d399);
+  box-shadow: 0 0 8px rgba(16, 185, 129, 0.6);
+}
+
 .bar-text {
   position: absolute;
   top: 50%;
