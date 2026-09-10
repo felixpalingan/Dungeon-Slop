@@ -702,11 +702,7 @@ export class Player {
       staminaFill.style.width = `${staminaPct}%`;
     }
 
-    // ODM Gas Bar
-    const gasContainer = document.getElementById('hud-gas-container');
-    const gasFill = document.getElementById('hud-gas-fill');
-    const gasText = document.getElementById('hud-gas-text');
-
+    // ODM Gas Bar (Check if Levi gear or mode is active)
     const isLeviActive = this.isOdmMode ||
       this.equipment?.weapon?.visual === 'dual_snap_blades' ||
       this.equipment?.chest?.visual === 'odm_harness' ||
@@ -714,21 +710,7 @@ export class Player {
       this.equipment?.pants?.visual === 'scout_trousers' ||
       this.equipment?.boots?.visual === 'scout_boots';
 
-    if (gasContainer) {
-      if (isLeviActive) {
-        gasContainer.classList.remove('hidden');
-        if (gasFill) {
-          gasFill.style.width = `${Math.max(0, Math.min(100, (this.odmGas / this.maxOdmGas) * 100))}%`;
-        }
-        if (gasText) {
-          gasText.textContent = `💨 ODM GAS: ${Math.round(this.odmGas)}% [Q: ${this.isOdmMode ? 'ACTIVE' : 'OFF'}]`;
-        }
-      } else {
-        gasContainer.classList.add('hidden');
-      }
-    }
-
-    // --- BIG TACTICAL ODM HUD OVERLAY ---
+    // --- SIMPLE CLEAN ODM GAS BAR OVERLAY ---
     const odmHud = document.getElementById('odm-tactical-hud');
     if (odmHud) {
       if (isLeviActive) {
@@ -738,68 +720,16 @@ export class Player {
         const charges = Math.min(10, Math.floor((this.odmGas + 0.1) / 10));
         const isLow = charges <= 2;
 
-        // Gauge Fill & Readout
         const bigFill = document.getElementById('odm-big-gas-fill');
         const bigText = document.getElementById('odm-big-gas-text');
-        const track = document.getElementById('odm-gauge-track');
 
         if (bigFill) {
           bigFill.style.width = `${gasPct}%`;
         }
-        if (track) {
-          track.classList.toggle('low', isLow);
-        }
         odmHud.classList.toggle('low-gas', isLow);
 
         if (bigText) {
-          if (charges === 0) {
-            bigText.textContent = `CRITICAL 0% • 0 / 10 RAPPELS (OUT OF GAS)`;
-          } else {
-            bigText.textContent = `${Math.round(gasPct)}% STEAM • ${charges} / 10 RAPPELS`;
-          }
-        }
-
-        // 10 Discrete Rappel Pips
-        const pipsContainer = document.getElementById('odm-pips-container');
-        if (pipsContainer) {
-          const pips = pipsContainer.querySelectorAll('.odm-pip');
-          pips.forEach((pip, idx) => {
-            const pipNum = idx + 1;
-            const filled = pipNum <= charges;
-            pip.classList.toggle('active', filled);
-            pip.classList.toggle('low', filled && isLow);
-          });
-        }
-
-        // Status Badge
-        const statusBadge = document.getElementById('odm-hud-status-badge');
-        const statusText = document.getElementById('odm-hud-status-text');
-        if (statusBadge && statusText) {
-          if (this.isOdmMode) {
-            statusBadge.className = 'odm-badge active';
-            if (this.activeCables && this.activeCables.length > 0) {
-              statusText.textContent = `[Q] MANEUVERING (${this.activeCables.length} CABLE${this.activeCables.length > 1 ? 'S' : ''})`;
-            } else {
-              statusText.textContent = `[Q] FLIGHT ACTIVE`;
-            }
-          } else {
-            statusBadge.className = 'odm-badge standby';
-            statusText.textContent = `[Q] STANDBY`;
-          }
-        }
-
-        // Footer Subtext
-        const subtext = document.getElementById('odm-hud-subtext');
-        if (subtext) {
-          if (this.activeCables && this.activeCables.length > 0) {
-            subtext.textContent = `FLYING • ZERO COLLISION • SLICES ON ENEMY HIT`;
-          } else if (this.odmGas < this.maxOdmGas && !this.isRolling && !this.isAirborne) {
-            subtext.textContent = `⚡ RECHARGING COMPRESSED STEAM ON GROUND (+60%/s)`;
-          } else if (isLow) {
-            subtext.textContent = `⚠️ PRESSURE CRITICAL! LAND ON FOOT TO REFUEL`;
-          } else {
-            subtext.textContent = `[L-CLICK] FIRE RAPPEL (MAX 2) • TOUCH GROUND TO RECHARGE`;
-          }
+          bigText.textContent = `GAS CHARGES: ${charges} / 10`;
         }
       } else {
         odmHud.classList.add('hidden');

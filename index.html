@@ -31,10 +31,6 @@
               <div class="bar-fill stamina-fill" id="hud-stamina-fill" style="width: 100%;"></div>
               <span class="bar-text" id="hud-stamina-text">STAMINA [SHIFT]</span>
             </div>
-            <div class="bar-container odm-gas-bar-bg" id="hud-gas-container">
-              <div class="bar-fill odm-gas-fill" id="hud-gas-fill" style="width: 100%;"></div>
-              <span class="bar-text" id="hud-gas-text">💨 ODM GAS: 100% [Q: OFF]</span>
-            </div>
           </div>
         </div>
       </div>
@@ -172,43 +168,11 @@
       </div>
 
       <div class="hud-bottom-center">
-        <!-- Big Tactical ODM Gas HUD Overlay -->
-        <div id="odm-tactical-hud" class="odm-tactical-card hidden">
-          <div class="odm-hud-header">
-            <div class="odm-hud-title-wrap">
-              <span class="odm-hud-icon">💨</span>
-              <span class="odm-hud-title">ODM STEAM PRESSURE</span>
-            </div>
-            <div id="odm-hud-status-badge" class="odm-badge standby">
-              <span class="odm-badge-dot"></span>
-              <span id="odm-hud-status-text">[Q] STANDBY</span>
-            </div>
-          </div>
-
-          <!-- 10 Discrete Rappel Canister Pips -->
-          <div class="odm-pips-container" id="odm-pips-container">
-            <div class="odm-pip" data-pip="1"></div>
-            <div class="odm-pip" data-pip="2"></div>
-            <div class="odm-pip" data-pip="3"></div>
-            <div class="odm-pip" data-pip="4"></div>
-            <div class="odm-pip" data-pip="5"></div>
-            <div class="odm-pip" data-pip="6"></div>
-            <div class="odm-pip" data-pip="7"></div>
-            <div class="odm-pip" data-pip="8"></div>
-            <div class="odm-pip" data-pip="9"></div>
-            <div class="odm-pip" data-pip="10"></div>
-          </div>
-
-          <!-- Big Continuous Gas Gauge Track -->
-          <div class="odm-gauge-track" id="odm-gauge-track">
-            <div class="odm-gauge-fill" id="odm-big-gas-fill" style="width: 100%;"></div>
-            <div class="odm-gauge-readout">
-              <span id="odm-big-gas-text">100% STEAM • 10 / 10 RAPPELS</span>
-            </div>
-          </div>
-
-          <div class="odm-hud-footer">
-            <span id="odm-hud-subtext" class="odm-subtext">TOUCH GROUND TO RECHARGE • [L-CLICK] LAUNCH CABLE</span>
+        <!-- Simple Clean ODM Gas Bar HUD Overlay -->
+        <div id="odm-tactical-hud" class="odm-gas-bar-container hidden">
+          <div class="odm-gas-bar-track">
+            <div class="odm-gas-bar-fill" id="odm-big-gas-fill" style="width: 100%;"></div>
+            <span class="odm-gas-bar-label" id="odm-big-gas-text">GAS CHARGES: 10 / 10</span>
           </div>
         </div>
 
